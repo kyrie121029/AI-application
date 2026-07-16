@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -n \"$(git status --porcelain 2>/dev/null)\" ]; then echo '{\"systemMessage\": \"⚠️ 有未提交的更改！建议执行 git add + git commit + git push\"}'; fi"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"{\\\"systemMessage\\\": \\\"📍 Spring Boot AI 应用开发平台 | 分支: $(git branch --show-current 2>/dev/null) | 参考 CLAUDE.md & ROADMAP.md\\\"}\""
+          }
+        ]
+      }
+    ]
+  }
+}

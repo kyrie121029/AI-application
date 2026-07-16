@@ -32,6 +32,9 @@ Thumbs.db
 *.tar.gz
 *.rar
 
+# Claude Code (local overrides only — project settings is committed)
+.claude/settings.local.json
+
 # Environment
 .env
 .env.local
