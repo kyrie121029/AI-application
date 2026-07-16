@@ -19,6 +19,20 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"D:/nju/实习/spring\" && if ./mvnw test -q > /dev/null 2>&1; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\"}}'; else echo '{\"systemMessage\":\"❌ 测试未通过，提交已阻止。请修复失败的测试后再提交。\",\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"单元测试未通过，请修复后重新提交\"}}'; fi",
+            "if": "Bash(git commit*)",
+            "statusMessage": "🧪 提交前自动运行测试...",
+            "timeout": 120
+          }
+        ]
+      }
     ]
   }
 }
