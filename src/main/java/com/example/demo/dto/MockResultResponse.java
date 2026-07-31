@@ -1,26 +1,31 @@
 package com.example.demo.dto;
 
 import com.example.demo.enums.TaskStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
 
-/**
- * 模拟结果响应 DTO —— 模拟 AI 分析后返回的结果
- */
+@Schema(description = "模拟分析结果")
 public class MockResultResponse {
 
-    /** 任务 ID */
+    @Schema(description = "任务ID", example = "1")
     private Long taskId;
 
-    /** 模拟摘要 */
+    @Schema(description = "模拟摘要")
     private String summary;
 
-    /** 模拟分析结论 */
+    @Schema(description = "模拟分析结论")
     private String conclusion;
 
-    /** 模拟建议 */
+    @Schema(description = "后续建议")
     private String suggestion;
 
-    /** 任务当前状态 */
+    @Schema(description = "任务状态", example = "RESULT_GENERATED")
     private TaskStatus status;
+
+    @Schema(description = "使用的模型名称", example = "mock")
+    private String modelName;
+
+    @Schema(description = "消耗的 Token 数", example = "0")
+    private int tokensUsed;
 
     // ==================== Getter / Setter ====================
 
@@ -63,4 +68,8 @@ public class MockResultResponse {
     public void setStatus(TaskStatus status) {
         this.status = status;
     }
+    public String getModelName() { return modelName; }
+    public void setModelName(String modelName) { this.modelName = modelName; }
+    public int getTokensUsed() { return tokensUsed; }
+    public void setTokensUsed(int tokensUsed) { this.tokensUsed = tokensUsed; }
 }

@@ -1,16 +1,15 @@
 package com.example.demo.dto;
 
 import com.example.demo.enums.TaskStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
 
-/**
- * 创建任务响应 DTO —— 创建完成后返回给前端的数据
- */
+@Schema(description = "创建任务响应")
 public class CreateTaskResponse {
 
-    /** 新创建的任务 ID */
+    @Schema(description = "新创建的任务ID", example = "1")
     private Long taskId;
 
-    /** 任务当前状态 */
+    @Schema(description = "任务状态", example = "PENDING")
     private TaskStatus status;
 
     // ==================== 构造方法 ====================

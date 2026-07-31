@@ -1,0 +1,18 @@
+# ==================== 开发环境：H2 内存数据库 ====================
+# 启动方式：保持 application.yml 中 spring.profiles.active=dev
+spring:
+  datasource:
+    url: jdbc:h2:mem:taskdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  flyway:
+    locations: classpath:db/migration/h2
+
+# AI 使用 Mock（默认），无需配置 API Key
+ai:
+  provider: mock

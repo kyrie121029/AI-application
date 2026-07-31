@@ -3,94 +3,402 @@
 > 以 Spring Boot 3 为后端底座，逐步构建一个 AI 应用开发平台。
 > 每个 Phase 是一个可独立完成的里程碑，顺序推进。
 
-## Phase 0 — 基础搭建 ✅
+## 当前状态（Phase 0 — 已完成）
 
-Spring Boot 3.4.3 + JDK 17 + Maven + H2 + JPA
+```
+Spring Boot 3.4.3 + JDK 17 + Maven
+├── H2 内存数据库 + JPA
+├── Task CRUD（创建/查询/删除）
+├── 模拟 AI 分析结果（mock-result 端点）
+├── 统一响应体 ApiResponse<T>
+├── 全局异常处理 GlobalExceptionHandler
+├── 参数校验 @Valid
+└── 单元测试 TaskServiceTest
+```
 
-- Task CRUD（创建/查询/删除）
-- 模拟 AI 分析结果（mock-result 端点）
-- 统一响应体 `ApiResponse<T>`
-- 全局异常处理 `GlobalExceptionHandler`
-- 参数校验 `@Valid`
-- 单元测试
+核心知识点已覆盖：IoC/DI、RESTful API、JPA Repository、@Entity、DTO 分层、异常处理、Validation。
 
-## Phase 1 — 数据库升级 & 事务管理
+---
 
-- MySQL 驱动，`application.yml` 多环境配置（dev/prod）
-- Flyway 数据库版本迁移
-- `@Transactional` 事务边界、传播机制、回滚策略
-- 分页查询 + 自定义 `@Query` 搜索过滤
+## 学习路线图
 
-## Phase 2 — 安全认证 & 多用户
+每个 Phase 代表一个可独立完成的里程碑，顺序推进，后面会依赖前面的基础。
 
-- `User` 实体，User 与 Task 的 `@ManyToOne` 关联
-- Spring Security `SecurityFilterChain` + `PasswordEncoder`
-- JWT 工具类（生成 / 校验 / 解析）
-- 注册 + 登录接口
-- `@CurrentUser` 自定义注解，资源归属校验
+### Phase 1：数据库升级 & 事务管理
 
-## Phase 3 — API 文档 & 接口规范
+> 目标：把 H2 换成 MySQL，学会多环境配置和事务
 
-- SpringDoc OpenAPI（Swagger UI）
-- `@Operation` / `@Schema` 注解补全
-- 统一分页响应格式 `PageResponse<T>`
+- [ ] 引入 MySQL 驱动，`application.yml` 多环境配置（dev/prod）
+- [ ] 用 Flyway 做数据库版本迁移（替代 `ddl-auto: update`）
+- [ ] `@Transactional` 事务边界、传播机制、回滚策略
+- [ ] 任务分页查询（`Pageable` + `@Query` 自定义查询）
+- [ ] 增加搜索过滤：按状态、类型、时间范围筛选
 
-## Phase 4 — 接入大模型 API
+### Phase 2：安全认证、权限控制与多用户
 
-- 抽象 `AIService` 接口（`OpenAIAIService` / `MockAIService`）
-- 用 `@ConditionalOnProperty` 在 mock 和真实调用之间切换
-- Prompt 模板引擎，`{inputText}` 占位替换
-- `AIUsageLog` 记录 token 消耗和耗时
+> 目标：接入 Spring Security + JWT，实现用户认证、资源隔离和基础权限控制
 
-## Phase 5 — 流式对话 & SSE
+- [ ] `User` 实体、`UserRepository`，User 与 Task 建立 `@ManyToOne` 关联
+- [ ] 密码使用 `PasswordEncoder` 加密存储，禁止明文保存
+- [ ] 配置 `SecurityFilterChain`：公开接口、登录接口和受保护接口
+- [ ] 实现 JWT 的生成、校验、过期判断和用户信息解析
+- [ ] 实现 JWT Authentication Filter，将认证信息写入 `SecurityContext`
+- [ ] 实现注册和登录接口：`/api/auth/register`、`/api/auth/login`
+- [ ] 统一处理未认证 401 和无权限 403 异常
+- [ ] 实现 `@CurrentUser` 或统一的当前用户获取方式
+- [ ] 用户只能查询、修改和删除自己的任务
+- [ ] 禁止直接根据前端传入的 userId 判断资源归属
+- [ ] 为越权访问、Token 过期、错误 Token 编写测试
 
-- SSE（Server-Sent Events）+ `WebClient` 流式请求
-- 对话历史存储：`Conversation` + `Message`（`@OneToMany`）
-- 多轮对话上下文
+### Phase 3：API 文档 & 接口规范
 
-## Phase 6 — 文件处理 & 对象存储
+> 目标：用 OpenAPI 生成可交互的接口文档
 
-- `MultipartFile` 上传，类型校验、大小限制
-- MinIO / 本地存储
-- 多模态接口（图片理解）
-- `@Async` + 线程池异步解析文档（PDF/Word/TXT）
+- [ ] 引入 SpringDoc OpenAPI，自动生成 OpenAPI 文档并提供 Swagger UI
+- [ ] 为 Controller 和 DTO 补 `@Operation` / `@Schema` 注解
+- [ ] 配置 `application.yml` 中的 Swagger 路径和分组
+- [ ] 统一分页响应格式 `PageResponse<T>`
+- [ ] 统一成功响应、异常响应和分页响应格式
+- [ ] 统一错误码设计，避免只返回字符串错误信息
+- [ ] 设计基础接口版本路径，例如 `/api/v1/tasks`
+- [ ] 明确 DTO、Entity、VO 的职责，禁止直接返回数据库实体
 
-## Phase 7 — RAG（检索增强生成）
+#### 完成标准
 
-- 文档分块策略
-- Embedding 生成
-- 向量数据库（Milvus / Qdrant / pgvector）
-- 检索 + 生成流程编排，引文追溯
+- Swagger UI 中可以完成注册、登录、创建任务、分页查询的完整调用
+- 所有接口具有请求参数、响应字段和错误码说明
+- Controller 不直接暴露 Entity
 
-## Phase 8 — 异步任务 & 消息队列
+### Phase 4：接入大模型 API与结构化输出
 
-- RabbitMQ / Kafka
-- 提交任务 → 返回 taskId → 异步处理 → 通知完成
-- `@EventListener` 事件驱动
-- 重试 + 死信队列
+> 目标：将模拟 AI 接口升级为稳定、可测试、可替换的大模型调用模块
 
-## Phase 9 — 智能体（Agent）& 工具调用
+#### 4.1 模型接入与抽象
 
-- Agent 基础架构：LLM + Tools + Memory + Planner
-- Function Calling
-- 实现 3+ 工具：搜索网页、查询数据库、调用外部 API
-- Agent 循环：思考 → 行动 → 观察 → 继续
+- [ ] 使用 Spring AI 或 WebClient 调用 OpenAI 兼容 API
+- [ ] 抽象 `AIService` 接口，业务层不直接依赖具体模型厂商
+- [ ] 实现 `OpenAIAIService`、`MockAIService`
+- [ ] 使用 `@ConditionalOnProperty` 在 mock 和真实模型之间切换
+- [ ] 将 Base URL、API Key、模型名称、超时时间放入配置文件
+- [ ] API Key 通过环境变量注入，禁止提交到 Git 仓库
+- [ ] 区分开发、测试和生产环境的模型配置
 
-## Phase 10 — 可观测性 & 生产就绪
+#### 4.2 Prompt 工程化
 
-- Actuator + Micrometer + Prometheus
-- 自定义 Metrics：AI 调用 QPS、P99 延迟、错误率
-- AOP 切面操作日志（`@OperationLog`）
-- 全局限流（Bucket4j / Sentinel）
-- Docker + docker-compose
-- GitHub Actions CI
+- [ ] 区分 System Prompt、User Prompt 和业务 Context
+- [ ] 将 Prompt 从 Controller 和 Service 业务代码中抽离
+- [ ] 支持 `{inputText}`、`{taskType}` 等变量替换
+- [ ] 为 Prompt 增加版本号，例如 `task-analysis-v1`
+- [ ] 记录每次调用使用的 Prompt 版本
+- [ ] 使用 Few-shot 约束分类边界和输出格式
+- [ ] 理解简单任务不应滥用 CoT 和自我反思
+
+#### 4.3 结构化输出
+
+- [ ] 定义 `TaskAnalysisResult` 等结构化响应 DTO
+- [ ] 使用 JSON Schema、Spring AI Entity 映射或模型原生结构化输出
+- [ ] 校验必填字段、数据类型和枚举值
+- [ ] 禁止使用正则表达式直接切割大模型自然语言输出
+- [ ] JSON 解析失败时进行有限次数重试
+- [ ] 区分面向用户的自然语言输出和面向程序的结构化输出
+
+#### 4.4 稳定性与异常处理
+
+- [ ] 配置连接超时和响应超时
+- [ ] 区分网络异常、限流异常、认证异常和模型输出异常
+- [ ] 对临时网络异常和限流进行有限重试
+- [ ] 使用指数退避，避免立即连续重试
+- [ ] 禁止对所有异常无限重试
+- [ ] 支持模型调用失败时返回统一错误响应
+- [ ] 保留 Mock 模型作为本地开发和自动测试降级方案
+
+#### 4.5 调用日志与成本统计
+
+- [ ] 建立 `AIUsageLog` 实体
+- [ ] 记录模型名称、请求时间、耗时、输入 Token、输出 Token
+- [ ] 记录调用是否成功、错误类型和 Prompt 版本
+- [ ] 关联用户 ID、任务 ID或会话 ID
+- [ ] 避免在生产日志中完整记录敏感输入和 API Key
+
+#### 完成标准
+
+- 能在 Mock 模型和真实模型之间通过配置切换
+- 模型结果能够稳定映射为 Java DTO
+- 非法 JSON、超时、限流和认证失败都有明确处理
+- 数据库中能够查询模型调用耗时和 Token 使用记录
+- 为 AIService 编写 Mock 测试，不依赖真实 API 才能运行测试
+
+### Phase 5：流式对话、会话管理与 Context Engineering
+
+> 目标：实现 ChatGPT 式流式响应，并正确管理多轮对话上下文
+
+#### 5.1 流式输出
+
+- [ ] 使用 Spring WebFlux / Spring AI Streaming 实现流式模型调用
+- [ ] 使用 SSE 向前端持续推送文本片段
+- [ ] 明确 SSE 的事件格式、结束事件和异常事件
+- [ ] 处理客户端中途断开连接
+- [ ] 处理模型生成超时和流式响应异常
+- [ ] 记录首 Token 延迟和完整响应耗时
+- [ ] 区分同步结构化接口和流式自然语言接口
+
+#### 5.2 会话与消息存储
+
+- [ ] 建立 `Conversation` 和 `Message` 实体
+- [ ] Message 至少包含 role、content、createdAt、tokenCount
+- [ ] 使用 conversationId 区分不同会话
+- [ ] 校验会话归属，禁止用户访问其他用户的会话
+- [ ] 支持创建会话、发送消息、查询历史和删除会话
+
+#### 5.3 上下文管理
+
+- [ ] 区分数据库中的完整历史和实际发送给模型的上下文
+- [ ] 第一版只发送最近 N 条或最近 N 轮消息
+- [ ] 为 System Prompt、用户输入和模型输出预留 Token 空间
+- [ ] 达到上下文阈值后，对早期消息进行摘要压缩
+- [ ] 保留关键业务状态，不因裁剪历史而丢失重要信息
+- [ ] 过滤无关、重复、过期的工具调用结果
+- [ ] 记录本次请求实际使用了哪些上下文消息
+
+### Phase 6：文件上传、对象存储与文档解析
+
+> 目标：建立安全、可追踪的文件处理链路，为后续 RAG 和多模态能力提供数据基础
+
+#### 6.1 文件上传
+
+- [ ] 使用 `MultipartFile` 实现文件上传
+- [ ] 限制文件大小、数量和允许的文件类型
+- [ ] 同时校验文件扩展名、Content-Type 和文件真实特征
+- [ ] 重命名上传文件，禁止直接使用用户原始文件名作为存储路径
+- [ ] 防止路径穿越和恶意文件上传
+- [ ] 计算文件 Hash，用于去重和完整性校验
+
+#### 6.2 文件存储
+
+- [ ] 第一版支持本地存储
+- [ ] 第二版接入 MinIO 对象存储
+- [ ] 数据库只保存文件元数据和对象存储路径
+- [ ] 建立 `FileRecord` 实体，记录用户、文件名、类型、大小和状态
+- [ ] 实现文件访问权限校验
+- [ ] 理解公开 URL 和带时效签名 URL 的区别
+
+#### 6.3 文档解析
+
+- [ ] 支持 PDF、Word 和 TXT 文本解析
+- [ ] 将文件解析设计为异步任务
+- [ ] 配置独立线程池，禁止直接使用默认线程池
+- [ ] 记录解析状态：PENDING / PROCESSING / SUCCESS / FAILED
+- [ ] 解析失败时保存失败原因并允许重试
+- [ ] 保存页码、段落等来源元数据，为后续引用追溯做准备
+
+#### 6.4 多模态调用
+
+- [ ] 调用支持图片输入的多模态模型
+- [ ] 区分文件解析、OCR 和视觉模型理解三种能力
+- [ ] 限制图片尺寸和数量，控制 Token 与调用成本
+
+### Phase 7：RAG（检索增强生成）
+
+> 目标：构建具有文档权限控制、引用追溯和基础评估能力的知识库问答系统
+
+#### 7.1 文档预处理
+
+- [ ] 清洗页眉、页脚、空白行和重复内容
+- [ ] 对不同文档类型设计分块策略
+- [ ] 比较固定长度、段落分块和滑动窗口
+- [ ] 为 Chunk 保存 documentId、pageNumber、sectionTitle 等元数据
+- [ ] 设计 Chunk 大小和重叠长度的可配置参数
+
+#### 7.2 向量化与存储
+
+- [ ] 调用 Embedding API 生成向量
+- [ ] 接入 pgvector、Qdrant 或 Milvus
+- [ ] 保存向量、原始文本和来源元数据
+- [ ] 支持文档重新解析和向量重新生成
+- [ ] 模型或分块策略变化时支持索引版本管理
+
+#### 7.3 检索流程
+
+- [ ] 实现 query → embedding → topK search
+- [ ] 按用户和知识库 ID 进行权限过滤
+- [ ] 支持相似度阈值和 topK 参数配置
+- [ ] 了解关键词检索、向量检索和混合检索
+- [ ] 了解 Rerank 的作用并完成一个基础重排实验
+- [ ] 没有检索到可靠证据时，允许模型明确回答“不知道”
+
+#### 7.4 Prompt 组装与引用
+
+- [ ] 将检索内容、来源信息和用户问题组装为 Prompt
+- [ ] 防止检索文档中的内容覆盖 System Prompt
+- [ ] 要求模型只基于检索证据回答
+- [ ] 返回引用文档、页码和文本片段
+- [ ] 支持根据引用定位到原始文档
+
+#### 7.5 RAG 评估
+
+- [ ] 建立一组人工标注问答测试集
+- [ ] 评估 Recall@K、命中率和引用正确率
+- [ ] 区分检索错误和生成错误
+- [ ] 记录不同 Chunk 大小、topK 和 Prompt 的实验结果
+- [ ] 比较无 RAG 与使用 RAG 时的回答质量
+
+#### 完成标准
+
+- 用户上传文档后能够完成解析、分块、向量化和问答
+- 每个回答能够返回具体文档来源
+- 用户不能检索其他用户的私有文档
+- 至少使用 20 个问题完成一次 RAG 参数对比实验
+
+### Phase 8：异步任务、消息队列与任务状态管理
+
+> 目标：使文档解析、批量生成等长耗时任务脱离 HTTP 请求线程，并保证任务可恢复、可重试
+
+- [ ] 定义异步任务状态机：PENDING / RUNNING / SUCCESS / FAILED / CANCELLED
+- [ ] 提交任务后立即返回 taskId
+- [ ] 提供任务状态和处理结果查询接口
+- [ ] 使用 RabbitMQ 或 Kafka 发送任务消息
+- [ ] 消费端根据 taskId 更新任务状态
+- [ ] 处理消息重复投递，保证消费幂等
+- [ ] 为任务设置最大重试次数
+- [ ] 区分可重试异常和不可重试异常
+- [ ] 配置死信队列并保存最终失败原因
+- [ ] 避免消息处理成功但数据库状态更新失败
+- [ ] 理解数据库事务与消息发送一致性问题
+- [ ] 使用 WebSocket、SSE 或轮询通知前端任务完成
+- [ ] 支持用户取消尚未执行的任务
+
+### Phase 9：Function Calling、Agent 与工具安全
+
+> 目标：让模型在受控范围内调用后端工具，而不是让模型直接控制业务系统
+
+#### 9.1 Function Calling
+
+- [ ] 定义工具名称、功能说明和参数 Schema
+- [ ] 将工具定义与真实业务 Service 分离
+- [ ] 模型只负责选择工具和生成参数
+- [ ] 后端负责参数校验、权限校验和真实执行
+- [ ] 将工具执行结果重新发送给模型生成最终回答
+- [ ] 处理工具不存在、参数缺失和执行失败情况
+
+#### 9.2 工具设计
+
+- [ ] 至少实现三个工具：查询任务、搜索知识库、查询设备状态
+- [ ] 区分只读工具和有副作用工具
+- [ ] 查询类工具可以自动执行
+- [ ] 创建、修改、删除等写操作必须经过额外确认
+- [ ] 为写操作设计幂等键，防止重复执行
+- [ ] 为每个工具设置超时、错误码和返回数据上限
+
+#### 9.3 Agent 循环
+
+- [ ] 实现 LLM → Tool Call → Tool Result → LLM 的循环
+- [ ] 设置最大工具调用轮数
+- [ ] 设置最大执行时间和 Token 预算
+- [ ] 检测重复调用同一工具和相同参数
+- [ ] 任务无法继续时安全终止，而不是无限重试
+- [ ] 保存每一步工具选择、参数、结果和最终状态
+
+#### 9.4 Memory 与 Planner
+
+- [ ] 区分对话记忆、业务状态和长期记忆
+- [ ] 第一版先使用短期会话记忆
+- [ ] 复杂任务再引入 Planner，不强制所有任务先生成计划
+- [ ] Planner 生成的步骤必须由后端校验
+- [ ] 禁止模型直接访问任意数据库表、文件系统和外部 URL
+
+#### 9.5 人工审核与审计
+
+- [ ] 高风险工具调用进入人工审核状态
+- [ ] 审核通过后才执行真实写操作
+- [ ] 保存操作人、模型、工具、参数和执行结果
+- [ ] 支持查询完整 Agent 执行轨迹
+
+#### 完成标准
+
+- Agent 能根据请求选择正确工具
+- 非法参数和越权调用会被后端拒绝
+- 写操作不会因模型重复调用而重复执行
+- Agent 达到轮数或时间上限后能够安全终止
+- 可以查询完整工具调用和人工审核记录
+
+### Phase 10：可观测性、部署与生产就绪
+
+> 目标：让系统具备可监控、可诊断、可部署和可恢复的基础能力
+
+#### 10.1 应用监控
+
+- [ ] 接入 Spring Boot Actuator
+- [ ] 使用 Micrometer 暴露 Prometheus 指标
+- [ ] 监控 HTTP QPS、错误率、平均耗时和 P95/P99
+- [ ] 自定义 AI 指标：调用次数、Token、延迟、失败率
+- [ ] 自定义 RAG 指标：检索耗时、召回数量、无结果比例
+- [ ] 自定义 Agent 指标：工具调用次数、失败率、平均调用轮数
+
+#### 10.2 日志与链路追踪
+
+- [ ] 使用统一日志格式和请求 Trace ID
+- [ ] 使用 MDC 将 userId、taskId、conversationId 写入日志上下文
+- [ ] 使用 AOP 实现操作日志
+- [ ] 禁止日志记录 API Key、密码和完整敏感文档
+- [ ] 对模型调用、检索、工具执行分别记录耗时
+- [ ] 能够根据 Trace ID 还原一次完整 AI 请求链路
+
+#### 10.3 稳定性
+
+- [ ] 使用 Bucket4j 或 Sentinel 实现接口限流
+- [ ] 对外部模型、向量数据库和对象存储设置超时
+- [ ] 必要时增加熔断和降级
+- [ ] 区分 readiness 和 liveness 健康检查
+- [ ] 实现优雅停机，避免任务处理中断
+
+#### 10.4 容器化与 CI
+
+- [ ] 编写 Dockerfile
+- [ ] 使用 docker-compose 启动 MySQL、Redis、MinIO、向量数据库等依赖
+- [ ] 使用环境变量管理密钥和连接信息
+- [ ] 配置 GitHub Actions 自动编译和运行测试
+- [ ] 测试失败时禁止合并代码
+- [ ] README 提供一键启动、环境变量和接口演示说明
 
 ---
 
 ## 使用方式
 
-每个 Phase 开始时告诉我「开始 Phase N」，我会：
-1. 讲解该阶段涉及的知识点
-2. 一起设计 API 和数据模型
-3. 分步实现，每步验证
-4. Phase 完成后总结学到的东西
+每个 Phase 开始时：
+1. 告诉我「开始 Phase N」，我会解释涉及的知识点
+2. 一起设计该 Phase 的 API 和数据模型
+3. 分步实现，每步写测试验证
+4. Phase 完成后我会总结你学到了什么
+
+> 这个 ROADMAP.md 会随项目演进持续更新。
+
+## 最终项目交付物
+
+完成全部路线后，项目至少应包含：
+
+- Spring Boot 后端服务
+- MySQL 数据库和 Flyway 迁移脚本
+- JWT 用户认证和数据权限隔离
+- 大模型同步调用和流式调用
+- Prompt 模板与结构化输出
+- 多轮会话和上下文管理
+- 文件上传、对象存储和异步解析
+- 带引用来源的 RAG 知识库
+- Function Calling 和受控 Agent
+- 消息队列异步任务
+- Actuator、Prometheus 和自定义监控指标
+- Docker Compose 一键启动
+- 自动化测试和 GitHub Actions
+
+## 求职展示材料
+
+- [ ] 项目架构图
+- [ ] 核心业务时序图
+- [ ] 数据库 ER 图
+- [ ] README 启动说明
+- [ ] Swagger 接口文档
+- [ ] RAG 评估结果
+- [ ] Prompt 版本和测试记录
+- [ ] Agent 工具调用演示
+- [ ] 异常处理和系统监控截图
+- [ ] 3～5 分钟项目演示视频

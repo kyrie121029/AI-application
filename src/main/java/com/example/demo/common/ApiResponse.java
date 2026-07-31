@@ -1,5 +1,7 @@
 package com.example.demo.common;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 统一返回类 —— 所有接口都套用这个格式返回给前端
  * <p>
@@ -14,13 +16,13 @@ package com.example.demo.common;
  */
 public class ApiResponse<T> {
 
-    /** 状态码，200 表示成功 */
+    @Schema(description = "状态码，200 表示成功", example = "200")
     private int code;
 
-    /** 提示信息 */
+    @Schema(description = "提示信息", example = "success")
     private String message;
 
-    /** 实际返回的数据 */
+    @Schema(description = "实际返回的数据")
     private T data;
 
     // ==================== 构造方法（私有，通过静态方法创建） ====================

@@ -1,122 +1,173 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.AIResult;
 import com.example.demo.dto.CreateTaskRequest;
 import com.example.demo.dto.CreateTaskResponse;
 import com.example.demo.dto.MockResultResponse;
+import com.example.demo.dto.TaskResponse;
 import com.example.demo.enums.TaskStatus;
+import com.example.demo.exception.AIResponseParseException;
+import com.example.demo.exception.AIServiceException;
+import com.example.demo.exception.ForbiddenException;
 import com.example.demo.exception.TaskNotFoundException;
+import com.example.demo.model.AIUsageLog;
 import com.example.demo.model.Task;
+import com.example.demo.model.User;
+import com.example.demo.repository.AIUsageLogRepository;
 import com.example.demo.repository.TaskRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
-/**
- * 任务服务 —— 业务逻辑层，负责任务的增删查改和模拟分析
- * <p>
- * 现已升级为 JPA 版本：用 TaskRepository 替代原来的 Map 存储，
- * 数据存入 H2 内存数据库，但操作方式跟 MySQL 完全一致。
- */
 @Service
 public class TaskService {
 
     private static final Logger log = LoggerFactory.getLogger(TaskService.class);
-
-    // 注入 Repository，替代原来的 Map<Long, Task>
     private final TaskRepository taskRepository;
+    private final AIService aiService;
+    private final AIUsageLogRepository usageLogRepository;
 
-    public TaskService(TaskRepository taskRepository) {
+    public TaskService(TaskRepository taskRepository, AIService aiService,
+                       AIUsageLogRepository usageLogRepository) {
         this.taskRepository = taskRepository;
+        this.aiService = aiService;
+        this.usageLogRepository = usageLogRepository;
     }
 
-    /**
-     * 创建任务
-     * <p>
-     * 对比旧版：taskStore.put(id, task) → taskRepository.save(task)
-     * ID 不再需要手动管理，JPA 会自动生成。
-     */
-    public CreateTaskResponse createTask(CreateTaskRequest request) {
-        // 构建 Task 对象（id 传 null，让 JPA 自动生成）
+    @Transactional
+    public CreateTaskResponse createTask(CreateTaskRequest request, User user) {
         Task task = new Task(null, request.getTitle(), request.getTaskType(), request.getInputText());
-
-        // save = 数据库的 INSERT
+        task.setUser(user);
         task = taskRepository.save(task);
-
-        log.info("任务创建成功: id={}, title={}", task.getId(), task.getTitle());
+        log.info("任务创建成功: id={}, title={}, userId={}", task.getId(), task.getTitle(), user.getId());
         return new CreateTaskResponse(task.getId(), task.getStatus());
     }
 
-    /**
-     * 根据 ID 查询任务
-     * <p>
-     * 对比旧版：taskStore.get(id) → taskRepository.findById(id)
-     */
-    public Task getTask(Long id) {
-        return taskRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.warn("任务不存在: id={}", id);
-                    return new TaskNotFoundException(id);
-                });
+    @Transactional(readOnly = true)
+    public TaskResponse getTask(Long id, User user) {
+        return TaskResponse.from(findTaskOrThrow(id, user));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<TaskResponse> listTasks(String status, String taskType, String keyword, User user, Pageable pageable) {
+        Specification<Task> spec = (root, query, cb) ->
+                cb.equal(root.get("user").get("id"), user.getId());
+        if (status != null && !status.isBlank())
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), TaskStatus.valueOf(status)));
+        if (taskType != null && !taskType.isBlank())
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("taskType"), taskType));
+        if (keyword != null && !keyword.isBlank())
+            spec = spec.and((root, query, cb) -> cb.or(
+                    cb.like(root.get("title"), "%" + keyword + "%"),
+                    cb.like(root.get("inputText"), "%" + keyword + "%")));
+        return taskRepository.findAll(spec, pageable).map(TaskResponse::from);
+    }
+
+    @Transactional
+    public void deleteTask(Long id, User user) {
+        Task task = findTaskOrThrow(id, user);
+        taskRepository.deleteById(task.getId());
+        log.info("任务已删除: id={}, userId={}", id, user.getId());
     }
 
     /**
-     * 查询所有任务（按创建时间倒序）
+     * 生成 AI 结果 —— 事务拆分版
      * <p>
-     * 对比旧版：手动排序 → JPA 的 findAll 默认按插入顺序，
-     * 这里用 List 反转实现倒序。
+     * 旧版：整个方法一个 @Transactional，AI 调用期间占用数据库连接 60+ 秒。
+     * 新版：
+     *   ① findTaskOrThrow 在事务内（读）
+     *   ② AI 调用在事务外（不占数据库连接）
+     *   ③ saveAIResultAndLog 在事务内（写）
+     *   ④ 失败日志用 REQUIRES_NEW，确保不被主事务回滚
      */
-    public List<Task> listTasks() {
-        // new ArrayList 确保列表可修改（findAll 可能返回不可变列表）
-        List<Task> tasks = new ArrayList<>(taskRepository.findAll());
-        tasks.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
-        return tasks;
+    public MockResultResponse generateResult(Long id, User user) {
+        // ① 查任务（在事务内）
+        Task task = findTaskOrThrow(id, user);
+        long start = System.currentTimeMillis();
+        String requestPreview = task.getInputText().substring(0, Math.min(500, task.getInputText().length()));
+
+        // ② 调用 AI —— 在事务外！
+        AIResult aiResult;
+        try {
+            aiResult = aiService.analyze(task.getInputText(), task.getTaskType());
+        } catch (AIServiceException e) {
+            long elapsed = System.currentTimeMillis() - start;
+            saveFailureLogNewTx(user.getId(), task.getId(), elapsed, requestPreview,
+                    e.getErrorType());
+            throw e;
+        }
+
+        long elapsed = System.currentTimeMillis() - start;
+        validateAIResult(aiResult);
+
+        // ③ 保存结果 + 日志（短事务）
+        return saveAIResultAndLog(task, user, aiResult, elapsed, requestPreview);
     }
 
-    /**
-     * 根据 ID 删除任务
-     * <p>
-     * 对比旧版：taskStore.remove(id) → 先查存在再 taskRepository.deleteById(id)
-     */
-    public void deleteTask(Long id) {
-        getTask(id); // 先确认存在
-        taskRepository.deleteById(id);
-        log.info("任务已删除: id={}", id);
-    }
-
-    /**
-     * 为指定任务生成模拟分析结果
-     */
-    public MockResultResponse generateMockResult(Long id) {
-        Task task = getTask(id);
-
-        String summary = "这是对输入内容的模拟摘要：\"" + task.getInputText() + "\" 已完成初步分析。";
-        String conclusion = "模拟分析结论：输入内容属于" + task.getTaskType() + "范畴，未发现明显异常。";
-        String suggestion = "后续可以将该模拟逻辑替换为真实大模型 API 调用。";
-
-        String resultJson = "{"
-                + "\"summary\": \"" + summary + "\", "
-                + "\"conclusion\": \"" + conclusion + "\", "
-                + "\"suggestion\": \"" + suggestion + "\""
-                + "}";
-        task.setResult(resultJson);
+    @Transactional
+    private MockResultResponse saveAIResultAndLog(Task task, User user, AIResult aiResult,
+                                                   long elapsed, String requestPreview) {
+        task.setResult(aiResult.toJson());
         task.setStatus(TaskStatus.RESULT_GENERATED);
         task.setUpdatedAt(LocalDateTime.now());
-
-        // save：如果 id 已存在就是 UPDATE，不存在才是 INSERT
         taskRepository.save(task);
 
-        log.info("模拟结果已生成: id={}, status={}", id, TaskStatus.RESULT_GENERATED);
+        AIUsageLog usageLog = new AIUsageLog(
+                user.getId(), task.getId(), aiService.getProvider(),
+                aiResult.getModelName(), aiResult.getInputTokens(),
+                aiResult.getOutputTokens(), elapsed, requestPreview,
+                aiService.getPromptVersion()
+        );
+        usageLogRepository.save(usageLog);
 
-        MockResultResponse response = new MockResultResponse();
-        response.setTaskId(id);
-        response.setSummary(summary);
-        response.setConclusion(conclusion);
-        response.setSuggestion(suggestion);
-        response.setStatus(task.getStatus());
-        return response;
+        log.info("AI 结果已生成: id={}, provider={}, promptVersion={}, tokens={}/{}",
+                task.getId(), aiService.getProvider(), aiService.getPromptVersion(),
+                aiResult.getInputTokens(), aiResult.getOutputTokens());
+
+        MockResultResponse r = new MockResultResponse();
+        r.setTaskId(task.getId());
+        r.setSummary(aiResult.getSummary());
+        r.setConclusion(aiResult.getConclusion());
+        r.setSuggestion(aiResult.getSuggestion());
+        r.setStatus(task.getStatus());
+        r.setModelName(aiResult.getModelName());
+        r.setTokensUsed(aiResult.getTokensUsed());
+        return r;
+    }
+
+    /** 失败日志用独立事务，确保不被主流程回滚 */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    private void saveFailureLogNewTx(Long userId, Long taskId, long elapsedMs,
+                                      String requestPreview, String errorType) {
+        try {
+            AIUsageLog failLog = new AIUsageLog(userId, taskId, aiService.getProvider(),
+                    null, elapsedMs, requestPreview, errorType,
+                    aiService.getPromptVersion());
+            usageLogRepository.save(failLog);
+        } catch (Exception logEx) {
+            log.error("保存 AI 失败日志时出错", logEx);
+        }
+    }
+
+    private void validateAIResult(AIResult result) {
+        if (result.getSummary() == null || result.getSummary().isBlank())
+            throw new AIResponseParseException("AI 返回摘要为空", "null");
+        if (result.getConclusion() == null || result.getConclusion().isBlank())
+            throw new AIResponseParseException("AI 返回结论为空", "null");
+    }
+
+    private Task findTaskOrThrow(Long id, User user) {
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() -> { log.warn("任务不存在: id={}", id); return new TaskNotFoundException(id); });
+        if (!task.getUser().getId().equals(user.getId()))
+            throw new ForbiddenException("无权访问该任务");
+        return task;
     }
 }

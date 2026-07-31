@@ -1,5 +1,8 @@
 package com.example.demo.common;
 
+import com.example.demo.exception.AIResponseParseException;
+import com.example.demo.exception.AIServiceException;
+import com.example.demo.exception.ForbiddenException;
 import com.example.demo.exception.TaskNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -37,6 +40,35 @@ public class GlobalExceptionHandler {
                 .get(0)
                 .getDefaultMessage();
         return ApiResponse.error(400, msg);
+    }
+
+    /**
+     * 捕获"权限不足"异常 → 返回 403
+     */
+    @ExceptionHandler(ForbiddenException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)   // HTTP 403
+    public ApiResponse<Void> handleForbidden(ForbiddenException e) {
+        return ApiResponse.error(403, e.getMessage());
+    }
+
+    /**
+     * 捕获"AI 服务调用失败"异常 → 返回 502
+     * 区分 errorType：auth(不重试) / rate_limit(重试) / timeout(重试) / network(重试) / server(重试)
+     */
+    @ExceptionHandler(AIServiceException.class)
+    @ResponseStatus(HttpStatus.BAD_GATEWAY)   // HTTP 502
+    public ApiResponse<Void> handleAIService(AIServiceException e) {
+        return ApiResponse.error(502, "AI 服务异常[" + e.getErrorType() + "]: " + e.getMessage());
+    }
+
+    /**
+     * 捕获"AI 响应解析失败"异常 → 返回 502
+     * 上游 AI 返回了内容但格式不符合预期
+     */
+    @ExceptionHandler(AIResponseParseException.class)
+    @ResponseStatus(HttpStatus.BAD_GATEWAY)   // HTTP 502
+    public ApiResponse<Void> handleAIResponseParse(AIResponseParseException e) {
+        return ApiResponse.error(502, "AI 响应解析失败: " + e.getMessage());
     }
 
     /**

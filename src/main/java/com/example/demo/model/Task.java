@@ -1,7 +1,18 @@
 package com.example.demo.model;
 
 import com.example.demo.enums.TaskStatus;
-import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 /**
@@ -9,6 +20,7 @@ import java.time.LocalDateTime;
  * <p>
  * 加了 @Entity 之后，Task 不再只是内存中的 Java 对象，而是数据库的一条记录。
  */
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "tasks")   // 指定表名，不写则默认用类名小写
 public class Task {
@@ -25,8 +37,7 @@ public class Task {
     /** 任务类型，如 "文本分析"、"情感识别" 等 */
     private String taskType;
 
-    /** 用户输入的待分析文本，用 @Lob 标记为大文本 */
-    @Lob
+    /** 用户输入的待分析文本 */
     @Column(columnDefinition = "TEXT")
     private String inputText;
 
@@ -35,7 +46,6 @@ public class Task {
     private TaskStatus status;
 
     /** AI 分析结果 */
-    @Lob
     @Column(columnDefinition = "TEXT")
     private String result;
 
@@ -44,6 +54,11 @@ public class Task {
 
     /** 任务最后更新时间 */
     private LocalDateTime updatedAt;
+
+    /** 所属用户（多对一：多个 Task 属于一个 User） */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
     // ==================== 构造方法 ====================
 
@@ -125,5 +140,13 @@ public class Task {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 }
