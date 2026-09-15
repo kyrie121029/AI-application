@@ -12,6 +12,22 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  servlet:
+    multipart:
+      max-file-size: 10MB      # 与 storage.max-file-size 保持一致
+      max-request-size: 12MB
+
+# ==================== 文件存储配置 ====================
+storage:
+  type: local                  # local=本地文件系统 / minio=对象存储
+  local:
+    root-path: ./data/uploads  # 本地存储根目录（应用工作目录下）
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:}      # 环境变量注入，禁止硬编码
+    secret-key: ${MINIO_SECRET_KEY:}      # 环境变量注入，禁止硬编码
+    bucket: ai-app-files
+  max-file-size: 10MB          # 业务层单文件上限（与 multipart 上限一致）
 
 # ==================== AI 服务配置 ====================
 ai:
@@ -21,6 +37,10 @@ ai:
   max-retries: 3
   chat:
     system-prompt: "你是一个有用的 AI 助手，请用中文回答用户的问题。"
+    prompt-version: chat-system-v1
+    max-input-tokens: 4000          # 上下文总预算（system + 当前用户 + 历史；模型输出从中预留）
+    max-output-tokens: 1000         # 模型输出预留 Token（从总预算中扣除）
+    max-content-length: 10000       # 消息内容最大长度
   openai:
     api-key: ${DASHSCOPE_API_KEY:}                                 # 从环境变量读取，默认为空。prod 环境下 ${DASHSCOPE_API_KEY} 会覆盖此值
     base-url: https://api.openai.com/v1                           # 含版本路径，最终 URL = baseUrl + /chat/completions
@@ -28,6 +48,63 @@ ai:
     system-prompt-version: task-analysis-v1
     system-prompt: "你是一个专业的文本分析助手。请根据用户输入，生成以下三部分内容：1.摘要 2.结论 3.建议。请严格用 JSON 格式输出，包含 summary、conclusion、suggestion 三个字段。"
     user-prompt: "任务类型：{taskType}\n待分析文本：{inputText}"
+
+# ==================== 聊天流式线程池 ====================
+chat:
+  executor:
+    core-pool-size: 8
+    max-pool-size: 32
+    queue-capacity: 20
+    keep-alive-seconds: 60
+
+# ==================== 文档解析线程池 ====================
+file-parse:
+  core-pool-size: 2
+  max-pool-size: 4
+  queue-capacity: 100
+
+# ==================== 图片分析 ====================
+image-analysis:
+  enabled: true
+  model: ${IMAGE_ANALYSIS_MODEL:}      # 多模态模型，为空时回退 ai.openai.model
+  max-tokens: 1000
+  core-pool-size: 2
+  max-pool-size: 4
+  queue-capacity: 50
+
+# ==================== RAG 分块 ====================
+rag:
+  chunk:
+    max-chars: 1000       # 单个 Chunk 最大字符数（基于字符，非 token）
+    overlap-chars: 100    # 相邻 Chunk 重叠字符数（必须 >=0 且 < max-chars）
+  index:
+    version: rag-index-v1 # 文档索引版本（payload 携带 + DocumentIndex 记录）
+  retrieval:
+    top-k: 5             # 默认返回条数
+    score-threshold: 0.0 # 相似度下限（Cosine；0 表示不设阈值）
+  context:
+    max-context-tokens: 2000  # 送入模型的检索上下文最大 Token 数（估算）
+
+# ==================== Embedding ====================
+embedding:
+  provider: ${EMBEDDING_PROVIDER:mock}               # mock / openai，独立于 ai.provider
+  model: ${EMBEDDING_MODEL:text-embedding-3-small}   # 独立于 chat model
+  dimension: 1536     # 期望响应维度（expectedDimension），与 text-embedding-3-small 默认输出一致
+  batch-size: 32
+  max-retries: 3
+
+# ==================== Vector Store ====================
+vector-store:
+  type: qdrant            # qdrant（Qdrant 为派生索引，MySQL DocumentChunk 是事实源）
+  qdrant:
+    host: ${QDRANT_HOST:localhost}
+    port: 6333
+    collection: ai-app-vectors
+
+# ==================== Agent 循环 ====================
+agent:
+  max-rounds: 5
+  timeout: 60s
 
 # ==================== SpringDoc OpenAPI 配置 ====================
 springdoc:

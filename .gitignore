@@ -4,6 +4,13 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# 本地文件存储根目录（storage.local.root-path，运行时上传文件，不入库）
+data/
+
 # IDE
 .idea/
 *.iml

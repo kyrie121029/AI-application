@@ -1,0 +1,19 @@
+-- V10：文档解析（Phase 6.3）—— FileRecord 增加解析状态 + 独立解析片段表（MySQL 版）
+
+-- 1. file_records 增加解析状态字段
+ALTER TABLE file_records ADD COLUMN parse_status VARCHAR(20);
+ALTER TABLE file_records ADD COLUMN parse_failure_reason VARCHAR(500);
+ALTER TABLE file_records ADD COLUMN parsed_at DATETIME(6);
+
+-- 2. 解析片段表：结构化原文 + 来源序号（页码/段落/行号）
+CREATE TABLE document_segments (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    file_id       BIGINT NOT NULL,
+    segment_type  VARCHAR(20) NOT NULL,
+    segment_index INT NOT NULL,
+    text          MEDIUMTEXT NOT NULL,
+    created_at    DATETIME(6),
+    FOREIGN KEY (file_id) REFERENCES file_records(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX idx_document_segments_file ON document_segments(file_id);

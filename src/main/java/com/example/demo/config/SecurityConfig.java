@@ -12,6 +12,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import jakarta.servlet.DispatcherType;
+
 /**
  * Spring Security 核心配置
  * <p>
@@ -48,10 +50,14 @@ public class SecurityConfig {
 
             // URL 权限规则
             .authorizeHttpRequests(auth -> auth
+                // SSE 异步分发放行：ASYNC dispatch 时 SecurityContext 不传播，
+                // 否则 AuthorizationFilter 在流结束后抛 AccessDenied（响应已提交 → 连接被异常关闭）
+                .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                 .requestMatchers("/api/auth/**").permitAll()        // 注册/登录：放行
                 .requestMatchers("/h2-console/**").permitAll()      // H2 控制台：放行
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/api-docs/**").permitAll() // Swagger：放行
                 .requestMatchers(HttpMethod.GET, "/hello").permitAll() // hello 测试接口：放行
+                .requestMatchers("/actuator/health").permitAll()      // 健康检查：放行（Docker healthcheck 用）
                 .anyRequest().authenticated()                        // 其余请求：需登录
             )
 

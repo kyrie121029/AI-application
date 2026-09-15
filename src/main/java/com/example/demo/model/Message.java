@@ -25,6 +25,10 @@ public class Message {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
+    /** 幂等 requestId（可选，重复提交去重用） */
+    @Column(name = "request_id")
+    private String requestId;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -45,6 +49,8 @@ public class Message {
     public void setRole(MessageRole role) { this.role = role; }
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
+    public String getRequestId() { return requestId; }
+    public void setRequestId(String requestId) { this.requestId = requestId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

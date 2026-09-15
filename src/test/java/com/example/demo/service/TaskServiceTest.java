@@ -206,15 +206,55 @@ class OpenAIAIServiceRetryTest {
     }
 
     @Test
-    @DisplayName("server 应重试")
-    void shouldRetryServer() {
-        assertTrue(OpenAIAIService.isRetryable("server"));
+    @DisplayName("upstream 应重试")
+    void shouldRetryUpstream() {
+        assertTrue(OpenAIAIService.isRetryable("upstream"));
     }
 
     @Test
     @DisplayName("network 应重试")
     void shouldRetryNetwork() {
         assertTrue(OpenAIAIService.isRetryable("network"));
+    }
+
+    @Test
+    @DisplayName("HTTP 状态码分类：400 → bad_request")
+    void shouldMap400ToBadRequest() {
+        assertEquals("bad_request", OpenAIAIService.mapHttpError(400, ""));
+    }
+
+    @Test
+    @DisplayName("HTTP 状态码分类：401/403 → auth")
+    void shouldMapAuthCodes() {
+        assertEquals("auth", OpenAIAIService.mapHttpError(401, ""));
+        assertEquals("auth", OpenAIAIService.mapHttpError(403, ""));
+    }
+
+    @Test
+    @DisplayName("HTTP 状态码分类：408 → timeout")
+    void shouldMap408ToTimeout() {
+        assertEquals("timeout", OpenAIAIService.mapHttpError(408, ""));
+    }
+
+    @Test
+    @DisplayName("HTTP 状态码分类：429 → rate_limit")
+    void shouldMap429ToRateLimit() {
+        assertEquals("rate_limit", OpenAIAIService.mapHttpError(429, ""));
+    }
+
+    @Test
+    @DisplayName("HTTP 状态码分类：500/502/503/504 → upstream")
+    void shouldMap5xxToUpstream() {
+        assertEquals("upstream", OpenAIAIService.mapHttpError(500, ""));
+        assertEquals("upstream", OpenAIAIService.mapHttpError(502, ""));
+        assertEquals("upstream", OpenAIAIService.mapHttpError(503, ""));
+        assertEquals("upstream", OpenAIAIService.mapHttpError(504, ""));
+    }
+
+    @Test
+    @DisplayName("HTTP 状态码分类：其他 4xx → client_error")
+    void shouldMapOther4xxToClientError() {
+        assertEquals("client_error", OpenAIAIService.mapHttpError(422, ""));
     }
 }
 

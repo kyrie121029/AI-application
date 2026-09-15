@@ -1,404 +1,1903 @@
+可以。下面这版我按你原来的 `ROADMAP.md` 风格重新整理：保留“每个 Phase 有目标、任务列表、完成标准”的结构，不把内容压缩成简单提纲；同时按照你当前真实开发进度重新编号，后面从 Phase 8 开始连续推进，不再出现 10A、10B 这种跳号。原路线中的数据库、安全、模型接入、会话、文件、RAG、MQ、Agent、可观测性和部署主线都保留，只调整了后半程优先级。
+
+你可以直接整体复制覆盖原来的 `ROADMAP.md`。
+
+````markdown
 # 学习路线图 — AI 应用开发
 
-> 以 Spring Boot 3 为后端底座，逐步构建一个 AI 应用开发平台。
-> 每个 Phase 是一个可独立完成的里程碑，顺序推进。
-
-## 当前状态（Phase 0 — 已完成）
-
-```
-Spring Boot 3.4.3 + JDK 17 + Maven
-├── H2 内存数据库 + JPA
-├── Task CRUD（创建/查询/删除）
-├── 模拟 AI 分析结果（mock-result 端点）
-├── 统一响应体 ApiResponse<T>
-├── 全局异常处理 GlobalExceptionHandler
-├── 参数校验 @Valid
-└── 单元测试 TaskServiceTest
-```
-
-核心知识点已覆盖：IoC/DI、RESTful API、JPA Repository、@Entity、DTO 分层、异常处理、Validation。
+> 以 Spring Boot 3 为后端底座，逐步构建一个面向多用户的 AI 知识库与智能工具调用平台。
+>
+> 项目以 AI 应用开发实习为主要目标，因此后续开发不单纯追求功能数量，而是重点建立：
+>
+> **后端工程基础 → 大模型调用 → Context Engineering → 文件处理 → RAG → 部署 → Agent → 异步任务 → 可观测性与项目交付**
+>
+> 每个 Phase 是一个相对独立的里程碑，后续阶段建立在前面的基础之上。
 
 ---
 
-## 学习路线图
-
-每个 Phase 代表一个可独立完成的里程碑，顺序推进，后面会依赖前面的基础。
-
-### Phase 1：数据库升级 & 事务管理
-
-> 目标：把 H2 换成 MySQL，学会多环境配置和事务
-
-- [ ] 引入 MySQL 驱动，`application.yml` 多环境配置（dev/prod）
-- [ ] 用 Flyway 做数据库版本迁移（替代 `ddl-auto: update`）
-- [ ] `@Transactional` 事务边界、传播机制、回滚策略
-- [ ] 任务分页查询（`Pageable` + `@Query` 自定义查询）
-- [ ] 增加搜索过滤：按状态、类型、时间范围筛选
-
-### Phase 2：安全认证、权限控制与多用户
-
-> 目标：接入 Spring Security + JWT，实现用户认证、资源隔离和基础权限控制
-
-- [ ] `User` 实体、`UserRepository`，User 与 Task 建立 `@ManyToOne` 关联
-- [ ] 密码使用 `PasswordEncoder` 加密存储，禁止明文保存
-- [ ] 配置 `SecurityFilterChain`：公开接口、登录接口和受保护接口
-- [ ] 实现 JWT 的生成、校验、过期判断和用户信息解析
-- [ ] 实现 JWT Authentication Filter，将认证信息写入 `SecurityContext`
-- [ ] 实现注册和登录接口：`/api/auth/register`、`/api/auth/login`
-- [ ] 统一处理未认证 401 和无权限 403 异常
-- [ ] 实现 `@CurrentUser` 或统一的当前用户获取方式
-- [ ] 用户只能查询、修改和删除自己的任务
-- [ ] 禁止直接根据前端传入的 userId 判断资源归属
-- [ ] 为越权访问、Token 过期、错误 Token 编写测试
-
-### Phase 3：API 文档 & 接口规范
-
-> 目标：用 OpenAPI 生成可交互的接口文档
-
-- [ ] 引入 SpringDoc OpenAPI，自动生成 OpenAPI 文档并提供 Swagger UI
-- [ ] 为 Controller 和 DTO 补 `@Operation` / `@Schema` 注解
-- [ ] 配置 `application.yml` 中的 Swagger 路径和分组
-- [ ] 统一分页响应格式 `PageResponse<T>`
-- [ ] 统一成功响应、异常响应和分页响应格式
-- [ ] 统一错误码设计，避免只返回字符串错误信息
-- [ ] 设计基础接口版本路径，例如 `/api/v1/tasks`
-- [ ] 明确 DTO、Entity、VO 的职责，禁止直接返回数据库实体
-
-#### 完成标准
-
-- Swagger UI 中可以完成注册、登录、创建任务、分页查询的完整调用
-- 所有接口具有请求参数、响应字段和错误码说明
-- Controller 不直接暴露 Entity
-
-### Phase 4：接入大模型 API与结构化输出
-
-> 目标：将模拟 AI 接口升级为稳定、可测试、可替换的大模型调用模块
-
-#### 4.1 模型接入与抽象
-
-- [ ] 使用 Spring AI 或 WebClient 调用 OpenAI 兼容 API
-- [ ] 抽象 `AIService` 接口，业务层不直接依赖具体模型厂商
-- [ ] 实现 `OpenAIAIService`、`MockAIService`
-- [ ] 使用 `@ConditionalOnProperty` 在 mock 和真实模型之间切换
-- [ ] 将 Base URL、API Key、模型名称、超时时间放入配置文件
-- [ ] API Key 通过环境变量注入，禁止提交到 Git 仓库
-- [ ] 区分开发、测试和生产环境的模型配置
-
-#### 4.2 Prompt 工程化
-
-- [ ] 区分 System Prompt、User Prompt 和业务 Context
-- [ ] 将 Prompt 从 Controller 和 Service 业务代码中抽离
-- [ ] 支持 `{inputText}`、`{taskType}` 等变量替换
-- [ ] 为 Prompt 增加版本号，例如 `task-analysis-v1`
-- [ ] 记录每次调用使用的 Prompt 版本
-- [ ] 使用 Few-shot 约束分类边界和输出格式
-- [ ] 理解简单任务不应滥用 CoT 和自我反思
-
-#### 4.3 结构化输出
-
-- [ ] 定义 `TaskAnalysisResult` 等结构化响应 DTO
-- [ ] 使用 JSON Schema、Spring AI Entity 映射或模型原生结构化输出
-- [ ] 校验必填字段、数据类型和枚举值
-- [ ] 禁止使用正则表达式直接切割大模型自然语言输出
-- [ ] JSON 解析失败时进行有限次数重试
-- [ ] 区分面向用户的自然语言输出和面向程序的结构化输出
-
-#### 4.4 稳定性与异常处理
-
-- [ ] 配置连接超时和响应超时
-- [ ] 区分网络异常、限流异常、认证异常和模型输出异常
-- [ ] 对临时网络异常和限流进行有限重试
-- [ ] 使用指数退避，避免立即连续重试
-- [ ] 禁止对所有异常无限重试
-- [ ] 支持模型调用失败时返回统一错误响应
-- [ ] 保留 Mock 模型作为本地开发和自动测试降级方案
-
-#### 4.5 调用日志与成本统计
-
-- [ ] 建立 `AIUsageLog` 实体
-- [ ] 记录模型名称、请求时间、耗时、输入 Token、输出 Token
-- [ ] 记录调用是否成功、错误类型和 Prompt 版本
-- [ ] 关联用户 ID、任务 ID或会话 ID
-- [ ] 避免在生产日志中完整记录敏感输入和 API Key
-
-#### 完成标准
-
-- 能在 Mock 模型和真实模型之间通过配置切换
-- 模型结果能够稳定映射为 Java DTO
-- 非法 JSON、超时、限流和认证失败都有明确处理
-- 数据库中能够查询模型调用耗时和 Token 使用记录
-- 为 AIService 编写 Mock 测试，不依赖真实 API 才能运行测试
-
-### Phase 5：流式对话、会话管理与 Context Engineering
-
-> 目标：实现 ChatGPT 式流式响应，并正确管理多轮对话上下文
-
-#### 5.1 流式输出
-
-- [ ] 使用 Spring WebFlux / Spring AI Streaming 实现流式模型调用
-- [ ] 使用 SSE 向前端持续推送文本片段
-- [ ] 明确 SSE 的事件格式、结束事件和异常事件
-- [ ] 处理客户端中途断开连接
-- [ ] 处理模型生成超时和流式响应异常
-- [ ] 记录首 Token 延迟和完整响应耗时
-- [ ] 区分同步结构化接口和流式自然语言接口
-
-#### 5.2 会话与消息存储
-
-- [ ] 建立 `Conversation` 和 `Message` 实体
-- [ ] Message 至少包含 role、content、createdAt、tokenCount
-- [ ] 使用 conversationId 区分不同会话
-- [ ] 校验会话归属，禁止用户访问其他用户的会话
-- [ ] 支持创建会话、发送消息、查询历史和删除会话
-
-#### 5.3 上下文管理
-
-- [ ] 区分数据库中的完整历史和实际发送给模型的上下文
-- [ ] 第一版只发送最近 N 条或最近 N 轮消息
-- [ ] 为 System Prompt、用户输入和模型输出预留 Token 空间
-- [ ] 达到上下文阈值后，对早期消息进行摘要压缩
-- [ ] 保留关键业务状态，不因裁剪历史而丢失重要信息
-- [ ] 过滤无关、重复、过期的工具调用结果
-- [ ] 记录本次请求实际使用了哪些上下文消息
-
-### Phase 6：文件上传、对象存储与文档解析
-
-> 目标：建立安全、可追踪的文件处理链路，为后续 RAG 和多模态能力提供数据基础
-
-#### 6.1 文件上传
-
-- [ ] 使用 `MultipartFile` 实现文件上传
-- [ ] 限制文件大小、数量和允许的文件类型
-- [ ] 同时校验文件扩展名、Content-Type 和文件真实特征
-- [ ] 重命名上传文件，禁止直接使用用户原始文件名作为存储路径
-- [ ] 防止路径穿越和恶意文件上传
-- [ ] 计算文件 Hash，用于去重和完整性校验
-
-#### 6.2 文件存储
-
-- [ ] 第一版支持本地存储
-- [ ] 第二版接入 MinIO 对象存储
-- [ ] 数据库只保存文件元数据和对象存储路径
-- [ ] 建立 `FileRecord` 实体，记录用户、文件名、类型、大小和状态
-- [ ] 实现文件访问权限校验
-- [ ] 理解公开 URL 和带时效签名 URL 的区别
-
-#### 6.3 文档解析
-
-- [ ] 支持 PDF、Word 和 TXT 文本解析
-- [ ] 将文件解析设计为异步任务
-- [ ] 配置独立线程池，禁止直接使用默认线程池
-- [ ] 记录解析状态：PENDING / PROCESSING / SUCCESS / FAILED
-- [ ] 解析失败时保存失败原因并允许重试
-- [ ] 保存页码、段落等来源元数据，为后续引用追溯做准备
-
-#### 6.4 多模态调用
-
-- [ ] 调用支持图片输入的多模态模型
-- [ ] 区分文件解析、OCR 和视觉模型理解三种能力
-- [ ] 限制图片尺寸和数量，控制 Token 与调用成本
-
-### Phase 7：RAG（检索增强生成）
-
-> 目标：构建具有文档权限控制、引用追溯和基础评估能力的知识库问答系统
-
-#### 7.1 文档预处理
-
-- [ ] 清洗页眉、页脚、空白行和重复内容
-- [ ] 对不同文档类型设计分块策略
-- [ ] 比较固定长度、段落分块和滑动窗口
-- [ ] 为 Chunk 保存 documentId、pageNumber、sectionTitle 等元数据
-- [ ] 设计 Chunk 大小和重叠长度的可配置参数
-
-#### 7.2 向量化与存储
-
-- [ ] 调用 Embedding API 生成向量
-- [ ] 接入 pgvector、Qdrant 或 Milvus
-- [ ] 保存向量、原始文本和来源元数据
-- [ ] 支持文档重新解析和向量重新生成
-- [ ] 模型或分块策略变化时支持索引版本管理
-
-#### 7.3 检索流程
-
-- [ ] 实现 query → embedding → topK search
-- [ ] 按用户和知识库 ID 进行权限过滤
-- [ ] 支持相似度阈值和 topK 参数配置
-- [ ] 了解关键词检索、向量检索和混合检索
-- [ ] 了解 Rerank 的作用并完成一个基础重排实验
-- [ ] 没有检索到可靠证据时，允许模型明确回答“不知道”
-
-#### 7.4 Prompt 组装与引用
-
-- [ ] 将检索内容、来源信息和用户问题组装为 Prompt
-- [ ] 防止检索文档中的内容覆盖 System Prompt
-- [ ] 要求模型只基于检索证据回答
-- [ ] 返回引用文档、页码和文本片段
-- [ ] 支持根据引用定位到原始文档
-
-#### 7.5 RAG 评估
-
-- [ ] 建立一组人工标注问答测试集
-- [ ] 评估 Recall@K、命中率和引用正确率
-- [ ] 区分检索错误和生成错误
-- [ ] 记录不同 Chunk 大小、topK 和 Prompt 的实验结果
-- [ ] 比较无 RAG 与使用 RAG 时的回答质量
-
-#### 完成标准
-
-- 用户上传文档后能够完成解析、分块、向量化和问答
-- 每个回答能够返回具体文档来源
-- 用户不能检索其他用户的私有文档
-- 至少使用 20 个问题完成一次 RAG 参数对比实验
-
-### Phase 8：异步任务、消息队列与任务状态管理
-
-> 目标：使文档解析、批量生成等长耗时任务脱离 HTTP 请求线程，并保证任务可恢复、可重试
-
-- [ ] 定义异步任务状态机：PENDING / RUNNING / SUCCESS / FAILED / CANCELLED
-- [ ] 提交任务后立即返回 taskId
-- [ ] 提供任务状态和处理结果查询接口
-- [ ] 使用 RabbitMQ 或 Kafka 发送任务消息
-- [ ] 消费端根据 taskId 更新任务状态
-- [ ] 处理消息重复投递，保证消费幂等
-- [ ] 为任务设置最大重试次数
-- [ ] 区分可重试异常和不可重试异常
-- [ ] 配置死信队列并保存最终失败原因
-- [ ] 避免消息处理成功但数据库状态更新失败
-- [ ] 理解数据库事务与消息发送一致性问题
-- [ ] 使用 WebSocket、SSE 或轮询通知前端任务完成
-- [ ] 支持用户取消尚未执行的任务
-
-### Phase 9：Function Calling、Agent 与工具安全
-
-> 目标：让模型在受控范围内调用后端工具，而不是让模型直接控制业务系统
-
-#### 9.1 Function Calling
-
-- [ ] 定义工具名称、功能说明和参数 Schema
-- [ ] 将工具定义与真实业务 Service 分离
-- [ ] 模型只负责选择工具和生成参数
-- [ ] 后端负责参数校验、权限校验和真实执行
-- [ ] 将工具执行结果重新发送给模型生成最终回答
-- [ ] 处理工具不存在、参数缺失和执行失败情况
-
-#### 9.2 工具设计
-
-- [ ] 至少实现三个工具：查询任务、搜索知识库、查询设备状态
-- [ ] 区分只读工具和有副作用工具
-- [ ] 查询类工具可以自动执行
-- [ ] 创建、修改、删除等写操作必须经过额外确认
-- [ ] 为写操作设计幂等键，防止重复执行
-- [ ] 为每个工具设置超时、错误码和返回数据上限
-
-#### 9.3 Agent 循环
-
-- [ ] 实现 LLM → Tool Call → Tool Result → LLM 的循环
-- [ ] 设置最大工具调用轮数
-- [ ] 设置最大执行时间和 Token 预算
-- [ ] 检测重复调用同一工具和相同参数
-- [ ] 任务无法继续时安全终止，而不是无限重试
-- [ ] 保存每一步工具选择、参数、结果和最终状态
-
-#### 9.4 Memory 与 Planner
-
-- [ ] 区分对话记忆、业务状态和长期记忆
-- [ ] 第一版先使用短期会话记忆
-- [ ] 复杂任务再引入 Planner，不强制所有任务先生成计划
-- [ ] Planner 生成的步骤必须由后端校验
-- [ ] 禁止模型直接访问任意数据库表、文件系统和外部 URL
-
-#### 9.5 人工审核与审计
-
-- [ ] 高风险工具调用进入人工审核状态
-- [ ] 审核通过后才执行真实写操作
-- [ ] 保存操作人、模型、工具、参数和执行结果
-- [ ] 支持查询完整 Agent 执行轨迹
-
-#### 完成标准
-
-- Agent 能根据请求选择正确工具
-- 非法参数和越权调用会被后端拒绝
-- 写操作不会因模型重复调用而重复执行
-- Agent 达到轮数或时间上限后能够安全终止
-- 可以查询完整工具调用和人工审核记录
-
-### Phase 10：可观测性、部署与生产就绪
-
-> 目标：让系统具备可监控、可诊断、可部署和可恢复的基础能力
-
-#### 10.1 应用监控
-
-- [ ] 接入 Spring Boot Actuator
-- [ ] 使用 Micrometer 暴露 Prometheus 指标
-- [ ] 监控 HTTP QPS、错误率、平均耗时和 P95/P99
-- [ ] 自定义 AI 指标：调用次数、Token、延迟、失败率
-- [ ] 自定义 RAG 指标：检索耗时、召回数量、无结果比例
-- [ ] 自定义 Agent 指标：工具调用次数、失败率、平均调用轮数
-
-#### 10.2 日志与链路追踪
-
-- [ ] 使用统一日志格式和请求 Trace ID
-- [ ] 使用 MDC 将 userId、taskId、conversationId 写入日志上下文
-- [ ] 使用 AOP 实现操作日志
-- [ ] 禁止日志记录 API Key、密码和完整敏感文档
-- [ ] 对模型调用、检索、工具执行分别记录耗时
-- [ ] 能够根据 Trace ID 还原一次完整 AI 请求链路
-
-#### 10.3 稳定性
-
-- [ ] 使用 Bucket4j 或 Sentinel 实现接口限流
-- [ ] 对外部模型、向量数据库和对象存储设置超时
-- [ ] 必要时增加熔断和降级
-- [ ] 区分 readiness 和 liveness 健康检查
-- [ ] 实现优雅停机，避免任务处理中断
-
-#### 10.4 容器化与 CI
-
-- [ ] 编写 Dockerfile
-- [ ] 使用 docker-compose 启动 MySQL、Redis、MinIO、向量数据库等依赖
-- [ ] 使用环境变量管理密钥和连接信息
-- [ ] 配置 GitHub Actions 自动编译和运行测试
-- [ ] 测试失败时禁止合并代码
-- [ ] README 提供一键启动、环境变量和接口演示说明
+## 当前项目定位
+
+### 基于 Spring Boot 的多用户 AI 知识库与智能工具调用平台
+
+项目核心链路：
+
+```text
+用户注册 / 登录
+        ↓
+Spring Security + JWT
+        ↓
+多用户资源权限隔离
+        ↓
+文件上传
+        ↓
+Local / MinIO 对象存储
+        ↓
+异步文档解析
+        ↓
+DocumentSegment
+        ↓
+DocumentChunk
+        ↓
+Embedding
+        ↓
+Qdrant Vector Index
+        ↓
+权限感知 Retrieval
+        ↓
+Context Assembly
+        ↓
+Grounded Prompt
+        ↓
+LLM Generation
+        ↓
+Citation
+        ↓
+Function Calling / Agent
+````
+
+项目重点不是简单调用一次大模型 API，而是完整学习 AI 应用开发中的：
+
+* Spring Boot 后端工程
+* 用户认证与数据权限
+* 大模型 API 抽象
+* Prompt Engineering
+* Structured Output
+* Streaming
+* Context Engineering
+* 文件处理
+* Embedding
+* Vector Database
+* RAG
+* Citation
+* Function Calling
+* Agent Control Flow
+* Retry / Timeout / Error Handling
+* Async Task
+* Message Queue
+* Observability
+* Docker Deployment
+* CI
 
 ---
 
-## 使用方式
+# Phase 0：Spring Boot 基础 — 已完成
 
-每个 Phase 开始时：
-1. 告诉我「开始 Phase N」，我会解释涉及的知识点
-2. 一起设计该 Phase 的 API 和数据模型
-3. 分步实现，每步写测试验证
-4. Phase 完成后我会总结你学到了什么
+> 目标：建立基础 Spring Boot Web 项目，理解后端应用的基本分层和调用链。
 
-> 这个 ROADMAP.md 会随项目演进持续更新。
+* [x] Spring Boot 3.4.3 + JDK 17 + Maven
+* [x] H2 / JPA 基础
+* [x] Task CRUD
+* [x] Repository 数据访问
+* [x] Service 业务层
+* [x] Controller 接口层
+* [x] DTO 基础分层
+* [x] 统一响应体 `ApiResponse<T>`
+* [x] 全局异常处理 `GlobalExceptionHandler`
+* [x] 参数校验 `@Valid`
+* [x] 基础单元测试
 
-## 最终项目交付物
+核心知识点：
 
-完成全部路线后，项目至少应包含：
+* IoC / DI
+* RESTful API
+* Controller / Service / Repository 分层
+* JPA Repository
+* `@Entity`
+* DTO
+* Validation
+* Exception Handling
+* Dependency Injection
 
-- Spring Boot 后端服务
-- MySQL 数据库和 Flyway 迁移脚本
-- JWT 用户认证和数据权限隔离
-- 大模型同步调用和流式调用
-- Prompt 模板与结构化输出
-- 多轮会话和上下文管理
-- 文件上传、对象存储和异步解析
-- 带引用来源的 RAG 知识库
-- Function Calling 和受控 Agent
-- 消息队列异步任务
-- Actuator、Prometheus 和自定义监控指标
-- Docker Compose 一键启动
-- 自动化测试和 GitHub Actions
+### 完成标准
 
-## 求职展示材料
+* 能独立创建 Spring Boot REST API
+* 能完成基本 CRUD
+* 能解释 Controller、Service、Repository 的职责
+* 能使用统一异常处理和参数校验
 
-- [ ] 项目架构图
-- [ ] 核心业务时序图
-- [ ] 数据库 ER 图
-- [ ] README 启动说明
-- [ ] Swagger 接口文档
-- [ ] RAG 评估结果
-- [ ] Prompt 版本和测试记录
-- [ ] Agent 工具调用演示
-- [ ] 异常处理和系统监控截图
-- [ ] 3～5 分钟项目演示视频
+---
+
+# Phase 1：数据库升级与事务管理 — 已完成
+
+> 目标：从开发阶段的简单数据库升级为 MySQL，并学习真实业务项目中的数据库版本管理和事务边界。
+
+* [x] 引入 MySQL Driver
+* [x] 使用 MySQL 替代 H2
+* [x] 配置 `application.yml`
+* [x] 区分不同环境配置
+* [x] 使用 Flyway 管理数据库 Schema
+* [x] 禁止依赖 `ddl-auto: update` 管理生产表结构
+* [x] 学习 `@Transactional`
+* [x] 明确事务边界
+* [x] 理解事务回滚
+* [x] 实现分页查询 `Pageable`
+* [x] 使用 Repository 自定义查询
+* [x] 支持基础状态和条件过滤
+
+核心知识点：
+
+* MySQL
+* Flyway
+* Transaction
+* Transaction Boundary
+* Rollback
+* JPA
+* Pagination
+* Database Migration
+
+### 完成标准
+
+* 应用可以使用 MySQL 正常启动
+* Flyway 可以自动完成数据库迁移
+* 不依赖自动建表维护数据库结构
+* 能解释为什么事务通常放在 Service 层
+* 能完成分页和基础条件查询
+
+---
+
+# Phase 2：安全认证、权限控制与多用户 — 已完成
+
+> 目标：接入 Spring Security + JWT，实现用户认证、资源隔离和多用户权限控制。
+
+* [x] 建立 `User` 实体
+* [x] `UserRepository`
+* [x] User 与 Task 建立关系
+* [x] 使用 `PasswordEncoder` 保存密码
+* [x] 禁止明文密码
+* [x] 配置 `SecurityFilterChain`
+* [x] 区分公开接口和受保护接口
+* [x] 实现 JWT 生成
+* [x] JWT 校验
+* [x] JWT 过期判断
+* [x] JWT 用户信息解析
+* [x] 实现 JWT Authentication Filter
+* [x] 将认证信息写入 `SecurityContext`
+* [x] 注册接口
+* [x] 登录接口
+* [x] 统一处理 401
+* [x] 统一处理 403
+* [x] 实现统一当前用户获取方式
+* [x] 用户只能访问自己的资源
+* [x] 禁止直接使用前端传入的 userId 判断权限
+* [x] 增加数据库层资源归属校验
+
+核心调用链：
+
+```text
+HTTP Request
+↓
+Security Filter Chain
+↓
+JWT Authentication Filter
+↓
+JWT Validation
+↓
+SecurityContext
+↓
+Controller
+↓
+Service
+↓
+Owner Validation
+↓
+Repository
+```
+
+核心知识点：
+
+* Authentication
+* Authorization
+* JWT
+* SecurityContext
+* Filter
+* Resource Ownership
+* 401 / 403
+* Defense in Depth
+
+### 完成标准
+
+* 用户可以注册和登录
+* Token 可以正确认证
+* Token 失效后返回 401
+* 用户无法访问其他用户的数据
+* 后端不依赖前端传入 userId 做权限判断
+
+---
+
+# Phase 3：API 文档与接口规范 — 已完成
+
+> 目标：建立规范、可维护、可交互测试的 REST API。
+
+* [x] 引入 SpringDoc OpenAPI
+* [x] Swagger UI
+* [x] Controller 使用 `@Operation`
+* [x] DTO 使用 `@Schema`
+* [x] 统一分页响应 `PageResponse<T>`
+* [x] 统一成功响应
+* [x] 统一错误响应
+* [x] 设计错误码
+* [x] API Version，例如 `/api/v1/...`
+* [x] 明确 DTO / Entity / VO 职责
+* [x] Controller 不直接返回 Entity
+
+核心知识点：
+
+* OpenAPI
+* Swagger
+* API Contract
+* DTO
+* Entity
+* VO
+* Error Code
+* API Versioning
+
+### 完成标准
+
+* Swagger 可以完成主要接口调用
+* 每个核心接口具有清晰的请求和响应说明
+* Controller 不直接暴露数据库 Entity
+* API 返回结构基本统一
+
+---
+
+# Phase 4：大模型 API、Prompt 与 Structured Output — 已完成核心能力
+
+> 目标：将简单 Mock AI 升级为稳定、可测试、可替换的大模型调用模块。
+
+## 4.1 模型接入与抽象
+
+* [x] 抽象 `AIService`
+* [x] 实现 `OpenAIAIService`
+* [x] 实现 `MockAIService`
+* [x] 使用 `@ConditionalOnProperty` 切换 Provider
+* [x] 支持 OpenAI-compatible API
+* [x] Base URL 配置化
+* [x] API Key 配置化
+* [x] Model Name 配置化
+* [x] Timeout 配置化
+* [x] API Key 通过环境变量注入
+* [x] 禁止真实 API Key 提交 Git
+
+调用关系：
+
+```text
+Business Service
+↓
+AIService
+↓
+OpenAIAIService / MockAIService
+↓
+Model Provider
+```
+
+---
+
+## 4.2 Prompt Engineering
+
+* [x] 区分 System Prompt
+* [x] 区分 User Prompt
+* [x] 区分 Business Context
+* [x] Prompt 从 Controller 中抽离
+* [x] Prompt 从业务 Service 中适当解耦
+* [x] Prompt Template
+* [x] Prompt Version
+* [x] 支持动态业务变量注入
+* [x] 理解 Few-shot 的使用场景
+* [x] 理解简单任务不应滥用 CoT
+
+核心思想：
+
+```text
+System Prompt
+→ 行为和规则
+
+Business Context
+→ 动态业务数据
+
+User Prompt
+→ 当前用户请求
+```
+
+---
+
+## 4.3 Structured Output
+
+* [x] 定义结构化 DTO
+* [x] 要求模型输出 JSON
+* [x] 使用 Jackson 解析
+* [x] 校验必填字段
+* [x] 校验字段类型
+* [x] 处理非法 JSON
+* [x] 输出解析异常分类
+* [x] 禁止通过正则表达式直接切割自然语言结果
+
+当前主要实现：
+
+```text
+Prompt-enforced JSON
++
+Application-side Strict Validation
+```
+
+后续可增强：
+
+* [ ] Provider-native Structured Output
+* [ ] JSON Schema
+* [ ] `response_format`
+* [ ] Constrained Decoding
+
+---
+
+## 4.4 稳定性与异常处理
+
+* [x] Connect Timeout
+* [x] Read Timeout
+* [x] 网络异常分类
+* [x] Rate Limit
+* [x] Authentication Error
+* [x] Bad Request
+* [x] Upstream Server Error
+* [x] Retryable Error
+* [x] Non-retryable Error
+* [x] 有限重试
+* [x] 指数退避
+* [x] 禁止所有异常无限重试
+* [x] Mock Provider 支持测试和本地开发
+
+---
+
+## 4.5 AI Usage Log
+
+* [x] 建立 `AIUsageLog`
+* [x] Model Name
+* [x] Provider
+* [x] Request Time
+* [x] Latency
+* [x] Input Token
+* [x] Output Token
+* [x] Error Type
+* [x] Prompt Version
+* [x] 用户 / Task / Conversation 基础关联
+* [x] 避免记录 API Key 等敏感信息
+
+### 完成标准
+
+* Mock 和真实模型可以通过配置切换
+* AIService 不绑定单一模型厂商
+* 非法返回能够被识别
+* 网络错误和鉴权错误具有不同处理策略
+* Retry 有明确边界
+* 模型调用具备基础使用记录
+
+---
+
+# Phase 5：流式对话、会话管理与 Context Engineering — 已完成
+
+> 目标：实现 ChatGPT 式流式响应，并正确管理多轮会话和模型上下文。
+
+## 5.1 SSE Streaming
+
+* [x] 使用 SSE 返回流式响应
+* [x] 支持模型 Streaming
+* [x] 定义流式事件
+* [x] 定义结束事件
+* [x] 定义异常事件
+* [x] 处理客户端中途断开
+* [x] 处理模型生成超时
+* [x] 使用独立有界线程池
+* [x] 区分同步结构化接口和流式自然语言接口
+
+---
+
+## 5.2 Conversation 与 Message
+
+* [x] `Conversation`
+* [x] `Message`
+* [x] role
+* [x] content
+* [x] createdAt
+* [x] tokenCount 基础支持
+* [x] conversationId
+* [x] 会话资源归属
+* [x] 创建会话
+* [x] 发送消息
+* [x] 查询历史
+* [x] 删除会话
+
+---
+
+## 5.3 Context Engineering
+
+* [x] 区分数据库完整历史和实际模型上下文
+* [x] 最近 N 条消息
+* [x] 最近 N 轮消息
+* [x] 为 System Prompt 预留 Token
+* [x] 为 User Input 预留 Token
+* [x] 为 Model Output 预留 Token
+* [x] Token Budget
+* [x] History Trimming
+* [x] 早期消息摘要压缩思路
+* [x] 无关历史过滤思路
+
+核心思想：
+
+```text
+Conversation History
+≠
+Model Context
+```
+
+### 完成标准
+
+* 支持多轮会话
+* 会话之间互相隔离
+* 不会简单把所有历史无限发送给模型
+* 能解释 Context Window 和 Token Budget
+
+---
+
+# Phase 6：文件上传、对象存储与文档解析 — 已完成
+
+> 目标：建立安全、可追踪的文件处理 Pipeline，为 RAG 和多模态能力提供数据基础。
+
+## 6.1 文件上传
+
+* [x] `MultipartFile`
+* [x] 文件大小限制
+* [x] 文件数量限制基础
+* [x] Extension 校验
+* [x] Content-Type 校验
+* [x] 文件真实类型基础校验
+* [x] 文件重命名
+* [x] 防止路径穿越
+* [x] File Hash
+* [x] FileRecord
+
+---
+
+## 6.2 文件存储
+
+* [x] StorageService 抽象
+* [x] Local Storage
+* [x] MinIO
+* [x] 数据库仅保存对象位置和元数据
+* [x] 用户文件权限校验
+* [x] 理解公开 URL 和 Signed URL
+
+核心关系：
+
+```text
+Database
+→ File Metadata
+
+Object Storage
+→ File Binary
+```
+
+---
+
+## 6.3 文档解析
+
+* [x] PDF
+* [x] DOCX
+* [x] TXT
+* [x] 文档异步处理
+* [x] 独立线程池
+* [x] PENDING
+* [x] PROCESSING
+* [x] SUCCESS
+* [x] FAILED
+* [x] 保存失败原因
+* [x] Retry
+* [x] `DocumentSegment`
+* [x] Page / Paragraph 等来源元数据
+
+---
+
+## 6.4 多模态处理
+
+* [x] 调用支持图片输入的多模态模型
+* [x] MultimodalAIService 抽象
+* [x] 图片分析 Worker
+* [x] Image Analysis Status
+* [x] 区分文本解析、OCR 和视觉理解
+* [x] 图片尺寸和数量基础限制
+* [x] 多模态 Token / Cost 基础认知
+
+### 完成标准
+
+* 用户可以上传文档
+* 文件能够持久化存储
+* 文件可以异步解析
+* 可以查询解析状态
+* 解析结果保留来源信息
+* 文件资源具有用户权限隔离
+
+---
+
+# Phase 7：RAG — 核心闭环已完成
+
+> 目标：构建具有权限控制、上下文预算、引用追溯和基础评估能力的知识库问答系统。
+
+## 7.1 文档 Chunking
+
+* [x] `DocumentChunk`
+* [x] `DocumentChunkSource`
+* [x] Segment → Chunk
+* [x] 自然边界分块
+* [x] Chunk Overlap
+* [x] Oversized Segment Sliding
+* [x] Chunk Size 配置化
+* [x] Overlap 配置化
+* [x] 保存 Chunk 来源关系
+
+核心链：
+
+```text
+File
+↓
+DocumentSegment
+↓
+DocumentChunk
+↓
+DocumentChunkSource
+```
+
+---
+
+## 7.2 Embedding
+
+* [x] `EmbeddingService`
+* [x] `OpenAIEmbeddingService`
+* [x] `MockEmbeddingService`
+* [x] 单条 Embedding
+* [x] Batch Embedding
+* [x] Embedding Provider
+* [x] Model
+* [x] Dimension
+* [x] Response Validation
+* [x] Provider Index Reordering
+* [x] `ChunkEmbeddingService`
+* [x] `ChunkEmbeddingDraft`
+
+核心链：
+
+```text
+DocumentChunk
+↓
+EmbeddingService
+↓
+ChunkEmbeddingDraft
+```
+
+---
+
+## 7.3 Vector Store 与索引
+
+* [x] `VectorStore`
+* [x] Qdrant
+* [x] Collection
+* [x] Point
+* [x] Vector
+* [x] Payload
+* [x] `VectorRecord`
+* [x] Stable Point ID
+* [x] Upsert
+* [x] Delete by fileId
+* [x] indexVersion
+* [x] `DocumentIndex`
+* [x] PENDING
+* [x] INDEXING
+* [x] SUCCESS
+* [x] FAILED
+* [x] CAS Index Claim
+* [x] Index Retry 基础
+* [x] MySQL Source of Truth
+* [x] Qdrant Derived Index
+
+核心思想：
+
+```text
+MySQL
+= Business Source of Truth
+
+Qdrant
+= Derived / Rebuildable Semantic Index
+```
+
+---
+
+## 7.4 Retrieval
+
+* [x] Query Embedding
+* [x] Vector Search
+* [x] TopK
+* [x] Score Threshold
+* [x] userId Filter
+* [x] fileIds Filter
+* [x] indexVersion Filter
+* [x] `VectorSearchRequest`
+* [x] `VectorSearchResult`
+* [x] `RetrievalResult`
+* [x] Qdrant Payload Parse
+* [x] MySQL Chunk Hydration
+* [x] Owner-aware 二次权限校验
+* [x] Preserve Retrieval Ranking
+* [x] Orphan Vector 容忍
+
+核心链：
+
+```text
+Query
+↓
+EmbeddingService
+↓
+Query Vector
+↓
+Qdrant Search
+↓
+Permission Filter
+↓
+Top-K
+↓
+chunkId
+↓
+MySQL Hydration
+↓
+RetrievalResult
+```
+
+---
+
+## 7.5 Context Assembly、Generation 与 Citation
+
+### Context Assembly
+
+* [x] `TokenEstimator`
+* [x] `SimpleTokenEstimator`
+* [x] `ContextAssembler`
+* [x] `ContextAssemblyResult`
+* [x] `RagContextSource`
+* [x] Context Token Budget
+* [x] Rank-preserving Greedy Packing
+* [x] Oversized Chunk Skip
+* [x] 完整 Chunk 优先
+* [x] Source ID：S1 / S2 / ...
+
+核心链：
+
+```text
+RetrievalResult[]
+↓
+TokenEstimator
+↓
+ContextAssembler
+↓
+ContextAssemblyResult
+```
+
+---
+
+### Grounded Prompt
+
+* [x] `RagPromptBuilder`
+* [x] System Prompt
+* [x] Context
+* [x] User Query
+* [x] 要求模型只基于 Context 回答
+* [x] Context 不足时允许拒答
+* [x] Retrieved Context 视为不可信输入
+* [x] 基础 Indirect Prompt Injection 防护
+* [x] 模型只能引用实际 Source ID
+
+---
+
+### RAG Generation
+
+* [x] `AIService.complete()`
+* [x] OpenAI Provider
+* [x] Mock Provider
+* [x] Reuse Timeout
+* [x] Reuse Retry
+* [x] Low Temperature
+* [x] Empty Context Short Circuit
+
+---
+
+### Citation
+
+* [x] 模型返回 `answer`
+* [x] 模型返回 `sourceIds`
+* [x] Strict JSON Parse
+* [x] Source ID Whitelist
+* [x] Invalid Citation Drop
+* [x] Citation Deduplication
+* [x] Citation Order Preserve
+* [x] `RagCitation`
+* [x] `RagAnswer`
+
+完整 RAG：
+
+```text
+Document
+↓
+Parse
+↓
+Chunk
+↓
+Embedding
+↓
+Qdrant
+↓
+Query Embedding
+↓
+Retrieval
+↓
+Context Assembly
+↓
+Grounded Prompt
+↓
+LLM
+↓
+Citation
+```
+
+---
+
+## 7.6 RAG Evaluation
+
+> 目标：理解并实现基础 Retrieval Evaluation，不让大规模 Benchmark 成为当前项目推进的阻塞项。
+
+### 已完成
+
+* [x] Retrieval Evaluation 基础设计
+* [x] Retrieval Evaluation Engine
+* [x] Evaluation Case
+* [x] Ground Truth
+* [x] Recall@K
+* [x] Precision@K
+* [x] Hit@K
+* [x] HitRate@K
+* [x] Reciprocal Rank
+* [x] MRR
+* [x] Retrieval / Context / Generation 分层诊断
+* [x] 理解 Evaluation Dataset 的作用
+* [x] 理解 Ground Truth 需要独立于 Retrieval System
+
+### 暂缓
+
+* [ ] 大规模公开 Benchmark 导入
+* [ ] 20～100+ 人工 Evaluation Cases
+* [ ] Embedding Model 大规模对比
+* [ ] Chunking 参数 Benchmark
+* [ ] TopK / Threshold 完整参数实验
+* [ ] Generation Evaluation
+* [ ] LLM-as-a-Judge
+* [ ] Faithfulness Evaluation
+* [ ] Claim-level Citation Evaluation
+
+后续仅要求：
+
+* [ ] 使用少量 5～10 个 Query 做 Smoke Evaluation
+* [ ] 验证 Evaluation Engine 可以真实运行
+* [ ] README 简要说明 Evaluation Design
+
+### 完成标准
+
+* 能解释 Recall@K、Precision@K、HitRate@K 和 MRR
+* 能区分 Retrieval Failure 和 Generation Failure
+* Evaluation Engine 可以运行
+* 大规模真实 Benchmark 不作为进入下一 Phase 的前置条件
+
+---
+
+# Phase 8：容器化与部署基础
+
+> 目标：将当前只能在开发环境运行的项目升级为可复制、可一键启动的完整工程。
+
+这一阶段暂时不要求立即购买云服务器。
+
+优先实现：
+
+```text
+Local Development
+↓
+Docker Image
+↓
+Docker Compose
+↓
+Production-like Local Environment
+```
+
+后续再根据需要部署到云服务器。
+
+---
+
+## 8.1 Docker 基础
+
+需要掌握：
+
+* [ ] Dockerfile
+* [ ] Image
+* [ ] Container
+* [ ] Registry
+* [ ] Docker Build
+* [ ] Docker Run
+* [ ] Container Port
+* [ ] Host Port
+* [ ] Docker Network
+* [ ] Volume
+* [ ] Environment Variable
+
+需要理解关系：
+
+```text
+Dockerfile
+↓
+docker build
+↓
+Image
+↓
+docker run
+↓
+Container
+```
+
+---
+
+## 8.2 Spring Boot Dockerfile
+
+* [ ] 编写项目 Dockerfile
+* [ ] Maven Multi-stage Build
+* [ ] Build Stage
+* [ ] Runtime Stage
+* [ ] Runtime 使用 JRE Image
+* [ ] 复制最终 JAR
+* [ ] 配置 `ENTRYPOINT`
+* [ ] 配置容器端口
+* [ ] 编写 `.dockerignore`
+* [ ] 理解 Docker Layer Cache
+* [ ] 理解 `ENTRYPOINT` 和 `CMD`
+* [ ] 控制最终 Image 大小
+
+目标：
+
+```text
+Source Code
+↓
+Maven Build
+↓
+Spring Boot JAR
+↓
+Docker Image
+↓
+Spring Boot Container
+```
+
+---
+
+## 8.3 Docker Compose
+
+统一管理：
+
+```text
+Docker Compose
+
+├── app
+├── mysql
+├── qdrant
+└── minio
+```
+
+* [ ] Spring Boot Service
+* [ ] MySQL Service
+* [ ] Qdrant Service
+* [ ] MinIO Service
+* [ ] Compose Network
+* [ ] Service Name DNS
+* [ ] Port Mapping
+* [ ] `depends_on`
+* [ ] Restart Policy
+* [ ] Healthcheck
+
+重点理解：
+
+宿主机访问容器：
+
+```text
+localhost + mapped port
+```
+
+容器访问容器：
+
+```text
+service-name + container-port
+```
+
+例如：
+
+```text
+Spring Boot → MySQL
+mysql:3306
+
+Spring Boot → Qdrant
+qdrant:6333
+
+Spring Boot → MinIO
+minio:9000
+```
+
+---
+
+## 8.4 数据持久化
+
+* [ ] MySQL Volume
+* [ ] Qdrant Volume
+* [ ] MinIO Volume
+* [ ] 验证 Container 删除后数据不会丢失
+* [ ] 理解 Container Lifecycle 和 Data Lifecycle 的区别
+
+至少设计：
+
+```text
+mysql-data
+qdrant-data
+minio-data
+```
+
+核心思想：
+
+```text
+Container
+= Disposable Runtime
+
+Volume
+= Persistent Data
+```
+
+---
+
+## 8.5 Environment 与 Secret
+
+* [ ] `.env`
+* [ ] `.env.example`
+* [ ] `.gitignore`
+* [ ] DB URL
+* [ ] DB User
+* [ ] DB Password
+* [ ] JWT Secret
+* [ ] AI API Key
+* [ ] AI Base URL
+* [ ] AI Model
+* [ ] Qdrant URL
+* [ ] MinIO Endpoint
+* [ ] MinIO Credentials
+
+原则：
+
+```text
+.env
+→ 真实配置
+→ 不提交 Git
+
+.env.example
+→ 配置模板
+→ 可以提交 Git
+```
+
+---
+
+## 8.6 Health Check
+
+* [ ] Spring Boot Actuator
+* [ ] `/actuator/health`
+* [ ] MySQL Healthcheck
+* [ ] App Healthcheck
+* [ ] 理解 Startup
+* [ ] 理解 Liveness
+* [ ] 理解 Readiness
+* [ ] 理解 `depends_on` 不代表依赖服务已经真正 Ready
+
+核心思想：
+
+```text
+Container Started
+≠
+Application Ready
+```
+
+---
+
+## 8.7 README 一键启动
+
+README 至少包括：
+
+* [ ] 项目环境要求
+* [ ] Docker Requirement
+* [ ] `.env.example`
+* [ ] AI Provider 配置
+* [ ] Docker Compose 启动
+* [ ] Swagger 地址
+* [ ] Health 地址
+* [ ] MySQL
+* [ ] Qdrant
+* [ ] MinIO
+* [ ] 常见启动问题
+
+理想启动流程：
+
+```text
+git clone
+↓
+copy .env.example .env
+↓
+填写必要 Secret
+↓
+docker compose up --build
+↓
+Spring Boot Ready
+↓
+Swagger 可访问
+```
+
+### 完成标准
+
+* `docker compose up --build` 可以启动完整系统
+* MySQL 正常运行
+* Qdrant 正常运行
+* MinIO 正常运行
+* Spring Boot 正常连接全部依赖
+* Flyway Migration 正常
+* Volume 数据可持久化
+* Swagger 可访问
+* `/actuator/health` 正常
+* API Key 等 Secret 不进入 Git
+* 其他开发者可以根据 README 独立启动系统
+
+---
+
+# Phase 9：Function Calling 与受控 Agent
+
+> 目标：让模型能够在后端控制范围内调用真实业务工具，建立完整的 LLM → Tool → Result → LLM Agent Loop。
+
+本阶段以 AI 应用开发岗位为导向，不追求构建复杂通用 Agent Framework。
+
+---
+
+## 9.1 Function Calling
+
+* [ ] 定义 Tool Name
+* [ ] Tool Description
+* [ ] Parameter Schema
+* [ ] Tool Definition 与业务 Service 分离
+* [ ] 模型只负责选择工具
+* [ ] 模型只负责生成 Tool Arguments
+* [ ] 后端负责参数 Validation
+* [ ] 后端负责 Permission Check
+* [ ] 后端负责真实 Tool Execution
+* [ ] Tool Result 返回给 LLM
+* [ ] LLM 根据 Tool Result 生成 Final Answer
+
+核心链：
+
+```text
+User
+↓
+LLM
+↓
+Tool Call
+↓
+Backend Validation
+↓
+Business Service
+↓
+Tool Result
+↓
+LLM
+↓
+Final Answer
+```
+
+---
+
+## 9.2 Tool Design
+
+第一版优先使用已有业务能力，不重复造 Service。
+
+至少实现 2～3 个只读工具：
+
+### `searchKnowledgeBase`
+
+* [ ] 调用现有 RetrievalService
+* [ ] 支持用户权限
+* [ ] 支持 fileIds
+* [ ] 限制返回数量
+
+### `queryTask`
+
+* [ ] 查询当前用户 Task
+* [ ] 禁止访问其他用户 Task
+
+### `getFileInfo`
+
+* [ ] 查询当前用户文件信息
+* [ ] 返回有限字段
+* [ ] 禁止返回任意文件系统路径
+
+共同要求：
+
+* [ ] 参数 Schema
+* [ ] 参数校验
+* [ ] Tool Timeout
+* [ ] Tool Error Code
+* [ ] Tool Result Size Limit
+* [ ] Permission Check
+
+第一版全部采用：
+
+```text
+Read-only Tool
+```
+
+暂时不急着开放：
+
+* Create
+* Update
+* Delete
+* External URL
+* Arbitrary SQL
+* Arbitrary File System Access
+
+---
+
+## 9.3 Agent Loop
+
+* [ ] LLM → Tool Call
+* [ ] Tool Call → Tool Result
+* [ ] Tool Result → LLM
+* [ ] 支持多轮 Tool Calling
+* [ ] 最大 Tool Round
+* [ ] 最大执行时间
+* [ ] Token Budget
+* [ ] 重复 Tool Call 检测
+* [ ] 相同参数重复调用检测
+* [ ] Invalid Tool
+* [ ] Invalid Arguments
+* [ ] Tool Failure
+* [ ] Model Failure
+* [ ] Safe Termination
+
+防止：
+
+```text
+LLM
+↓
+Tool
+↓
+LLM
+↓
+Tool
+↓
+LLM
+↓
+Tool
+↓
+无限循环
+```
+
+---
+
+## 9.4 Agent Memory 与 Context
+
+* [ ] 区分 Conversation Memory
+* [ ] Tool Execution State
+* [ ] Business State
+* [ ] 第一版复用短期 Conversation Context
+* [ ] Tool Result 不无限加入 Context
+* [ ] 对过大的 Tool Result 做裁剪
+* [ ] 不强制实现 Planner
+
+暂缓：
+
+* [ ] Long-term Memory
+* [ ] Complex Planner
+* [ ] Reflection Loop
+* [ ] Autonomous Agent Planning
+
+---
+
+## 9.5 Agent Execution Trace
+
+每次 Agent 请求至少记录：
+
+* [ ] Request ID
+* [ ] Round
+* [ ] Model
+* [ ] Tool Name
+* [ ] Tool Arguments
+* [ ] Tool Latency
+* [ ] Tool Result Summary
+* [ ] Error Type
+* [ ] Final Status
+
+目标：
+
+```text
+一次 Agent 请求
+↓
+可以还原完整执行轨迹
+```
+
+### 完成标准
+
+* 模型可以正确选择至少 2～3 个 Tool
+* Tool Definition 和业务 Service 分离
+* Tool 执行前具有参数校验
+* Tool 执行前具有权限校验
+* Agent 有最大调用轮数
+* Agent 有最大执行时间
+* 重复 Tool Call 不会无限循环
+* Tool Failure 可以安全结束
+* 能查看一次 Agent 的完整 Tool Trace
+
+---
+
+# Phase 10：异步任务、RabbitMQ 与任务状态管理 — 可选增强阶段
+
+> 目标：将当前进程内异步任务进一步升级为消息队列驱动的可靠异步架构。
+>
+> 本阶段主要增强 Java 后端和分布式工程能力。如果求职时间有限，可以在完成 Phase 9 后先进入 Phase 11。
+
+---
+
+## 10.1 Async Task Model
+
+* [ ] PENDING
+* [ ] RUNNING
+* [ ] SUCCESS
+* [ ] FAILED
+* [ ] CANCELLED
+* [ ] taskId
+* [ ] Task Status Query
+* [ ] Failure Reason
+* [ ] Retry Count
+
+---
+
+## 10.2 RabbitMQ
+
+第一版选择 RabbitMQ，不同时引入 Kafka。
+
+* [ ] RabbitMQ
+* [ ] Exchange
+* [ ] Queue
+* [ ] Routing Key
+* [ ] Producer
+* [ ] Consumer
+* [ ] Message Serialization
+
+可以优先改造：
+
+```text
+File Upload
+↓
+Create Async Task
+↓
+RabbitMQ
+↓
+Document Parse Worker
+↓
+Chunk
+↓
+Embedding
+↓
+Vector Index
+```
+
+---
+
+## 10.3 Idempotency
+
+* [ ] Message ID
+* [ ] Idempotency Key
+* [ ] Duplicate Delivery
+* [ ] Consumer Idempotency
+* [ ] 避免重复创建 Chunk
+* [ ] 避免重复 Index Side Effect
+
+理解：
+
+```text
+At-least-once Delivery
+↓
+消息可能重复
+↓
+Consumer 必须考虑幂等
+```
+
+---
+
+## 10.4 Retry 与 DLQ
+
+* [ ] Retryable Error
+* [ ] Non-retryable Error
+* [ ] Max Retry
+* [ ] Retry Delay
+* [ ] Dead Letter Queue
+* [ ] Final Failure Reason
+* [ ] Manual Retry 基础
+
+---
+
+## 10.5 DB 与 MQ 一致性
+
+重点理解：
+
+```text
+Database Commit
++
+Message Send
+```
+
+不是一个天然原子操作。
+
+需要掌握：
+
+* [ ] DB Transaction
+* [ ] MQ Publish
+* [ ] Message Loss
+* [ ] Duplicate Message
+* [ ] Outbox Pattern
+* [ ] Eventual Consistency
+
+第一版不强制实现完整 Transactional Outbox，但需要能够解释它解决什么问题。
+
+### 完成标准
+
+* 长耗时任务可以脱离 HTTP Request Thread
+* 用户可以通过 taskId 查询任务状态
+* Consumer 能处理重复消息
+* Retry 有明确上限
+* 无法恢复的消息进入 DLQ
+* 能解释数据库事务和 MQ 发送之间的一致性问题
+
+---
+
+# Phase 11：可观测性、CI 与生产就绪
+
+> 目标：让系统从“能够运行”进一步升级为“能够观察、诊断、验证和维护”。
+
+---
+
+## 11.1 Spring Boot Actuator 与 Micrometer
+
+* [ ] Spring Boot Actuator
+* [ ] Micrometer
+* [ ] HTTP Request Count
+* [ ] HTTP Error Rate
+* [ ] HTTP Latency
+* [ ] P50
+* [ ] P95
+* [ ] P99
+
+需要理解：
+
+```text
+Average Latency
+≠
+Tail Latency
+```
+
+重点掌握：
+
+* P50
+* P95
+* P99
+* Long-tail Latency
+
+---
+
+## 11.2 AI Observability
+
+至少监控：
+
+* [ ] AI Request Count
+* [ ] Model
+* [ ] Provider
+* [ ] AI Latency
+* [ ] Input Token
+* [ ] Output Token
+* [ ] Retry Count
+* [ ] AI Error Count
+* [ ] AI Error Rate
+
+可设计：
+
+```text
+ai.request.count
+ai.request.latency
+ai.error.count
+ai.retry.count
+ai.input.tokens
+ai.output.tokens
+```
+
+---
+
+## 11.3 RAG Observability
+
+至少监控：
+
+* [ ] Query Embedding Latency
+* [ ] Retrieval Latency
+* [ ] Retrieved Count
+* [ ] Empty Retrieval Count
+* [ ] Empty Retrieval Rate
+* [ ] Context Source Count
+* [ ] Estimated Context Tokens
+* [ ] Context Truncated Count
+* [ ] Context Truncated Rate
+* [ ] Generation Latency
+* [ ] Structured Output Parse Failure
+* [ ] Citation Count
+* [ ] Total RAG Latency
+
+核心诊断链：
+
+```text
+RAG Request Slow
+↓
+Embedding Slow?
+↓
+Vector Search Slow?
+↓
+MySQL Hydration Slow?
+↓
+Context Assembly Slow?
+↓
+LLM Generation Slow?
+```
+
+---
+
+## 11.4 Agent Observability
+
+* [ ] Agent Request Count
+* [ ] Tool Call Count
+* [ ] Tool Error Rate
+* [ ] Tool Latency
+* [ ] Average Tool Rounds
+* [ ] Agent Failure Rate
+* [ ] Max Round Termination Count
+
+---
+
+## 11.5 Logging 与 Trace ID
+
+* [ ] Request ID
+* [ ] Trace ID
+* [ ] MDC
+* [ ] userId
+* [ ] taskId
+* [ ] conversationId
+* [ ] 分层记录 Retrieval / AI / Tool Latency
+* [ ] 根据 Trace ID 还原一次请求
+
+禁止日志记录：
+
+* API Key
+* Password
+* JWT Secret
+* 完整敏感文档
+* 不必要的完整 Prompt
+* 用户隐私信息
+
+---
+
+## 11.6 Prometheus
+
+* [ ] Micrometer Prometheus Registry
+* [ ] `/actuator/prometheus`
+* [ ] Prometheus
+* [ ] Prometheus Scrape
+* [ ] 基础 PromQL
+* [ ] P95 / P99 查询
+
+可选：
+
+* [ ] Grafana
+* [ ] AI Dashboard
+* [ ] RAG Dashboard
+
+Grafana 只作为展示增强，不作为项目必须项。
+
+---
+
+## 11.7 Stability
+
+* [ ] 所有外部模型调用设置 Timeout
+* [ ] Qdrant Timeout
+* [ ] MinIO Timeout
+* [ ] 必要接口限流
+* [ ] Retry Boundary
+* [ ] Fail Fast
+* [ ] 基础 Graceful Shutdown
+* [ ] Readiness
+* [ ] Liveness
+
+可了解：
+
+* Bucket4j
+* Sentinel
+* Circuit Breaker
+* Resilience4j
+
+第一版不要求同时引入所有组件。
+
+---
+
+## 11.8 GitHub Actions
+
+建立：
+
+```text
+Push / Pull Request
+↓
+Checkout
+↓
+Setup JDK
+↓
+Maven Cache
+↓
+mvn test
+↓
+mvn package
+```
+
+* [ ] GitHub Actions Workflow
+* [ ] Maven Cache
+* [ ] Automated Test
+* [ ] Automated Build
+* [ ] PR 自动检查
+* [ ] CI Failure 阻止合并（仓库条件允许时）
+
+暂不要求复杂 CD。
+
+---
+
+## 11.9 公网 Demo — 可选
+
+本地 Docker Compose 完成之后，根据时间决定是否部署。
+
+简单部署架构：
+
+```text
+Internet
+↓
+Nginx
+↓
+Spring Boot Container
+├── MySQL
+├── Qdrant
+└── MinIO
+
+Spring Boot
+↓
+External LLM / Embedding API
+```
+
+可选学习：
+
+* [ ] 云服务器
+* [ ] Domain
+* [ ] Nginx
+* [ ] Reverse Proxy
+* [ ] HTTPS
+* [ ] TLS Certificate
+* [ ] Firewall
+* [ ] Production Environment Variables
+
+公网部署属于加分项，不作为项目完成的硬性前置条件。
+
+### 完成标准
+
+* 可以查看 HTTP 基础指标
+* 可以查看 AI / RAG / Agent 核心指标
+* 能解释 P95 / P99
+* 能根据 Trace ID 定位核心请求链
+* GitHub PR 可以自动运行测试
+* 系统能够通过 Docker Compose 可靠启动
+* 日志不包含敏感 Secret
+
+---
+
+# 最终项目 Stop Condition
+
+达到下面状态以后，不再继续无限堆功能。
+
+## 后端基础
+
+* [x] MySQL
+* [x] Flyway
+* [x] Transaction
+* [x] JWT
+* [x] Multi-user Permission
+* [x] OpenAPI
+
+## AI Core
+
+* [x] AIService
+* [x] Mock / Real Provider
+* [x] Prompt Engineering
+* [x] Structured Output
+* [x] Retry
+* [x] Timeout
+* [x] Usage Log
+* [x] SSE
+* [x] Conversation
+* [x] Context Engineering
+
+## File & RAG
+
+* [x] File Upload
+* [x] Local / MinIO
+* [x] Async Parsing
+* [x] Chunking
+* [x] Embedding
+* [x] Qdrant
+* [x] Permission-aware Retrieval
+* [x] Context Budget
+* [x] Grounded Generation
+* [x] Citation
+* [x] Retrieval Evaluation Engine
+
+## Agent
+
+* [ ] Function Calling
+* [ ] 2～3 个 Tool
+* [ ] Tool Parameter Validation
+* [ ] Tool Permission Validation
+* [ ] Agent Loop
+* [ ] Loop Boundary
+* [ ] Execution Trace
+
+## Engineering
+
+* [ ] Dockerfile
+* [ ] Docker Compose
+* [ ] Volume
+* [ ] Environment Variable
+* [ ] Actuator
+* [ ] Metrics
+* [ ] Prometheus
+* [ ] Trace ID
+* [ ] GitHub Actions
+
+达到以上核心能力之后：
+
+```text
+停止继续堆功能
+↓
+复盘核心源码
+↓
+整理架构图
+↓
+准备项目面试问题
+↓
+优化简历
+↓
+开始投递 AI 应用开发实习
+```
+
+---
+
+# 最终项目交付物
+
+项目最终至少应包含：
+
+* Spring Boot 后端服务
+* MySQL + Flyway
+* JWT 用户认证与资源隔离
+* 大模型同步调用
+* 大模型流式调用
+* Prompt Template
+* Structured Output
+* Conversation / Context Management
+* 文件上传
+* MinIO
+* 异步文档解析
+* Document Chunking
+* Embedding
+* Qdrant Vector Database
+* Permission-aware Retrieval
+* Context Assembly
+* Grounded RAG
+* Citation
+* Retrieval Evaluation Engine
+* Function Calling
+* 受控 Agent Loop
+* Docker Compose
+* Actuator / Micrometer
+* Prometheus
+* GitHub Actions
+
+RabbitMQ 和公网 Deployment 根据时间作为增强项。
+
+---
+
+# 求职展示材料
+
+## 1. GitHub README
+
+* [ ] 项目介绍
+* [ ] 项目背景
+* [ ] 技术栈
+* [ ] Architecture Diagram
+* [ ] Core Features
+* [ ] RAG Pipeline
+* [ ] Agent Pipeline
+* [ ] Docker Compose 启动方式
+* [ ] Environment Variables
+* [ ] Swagger
+* [ ] Health Check
+* [ ] Demo Screenshots
+
+---
+
+## 2. 项目架构图
+
+建议最终至少准备：
+
+```text
+docs/
+├── architecture.png
+├── rag-sequence.png
+├── agent-sequence.png
+└── er-diagram.png
+```
+
+包括：
+
+* [ ] Overall Architecture
+* [ ] RAG Sequence Diagram
+* [ ] Agent Sequence Diagram
+* [ ] Database ER Diagram
+
+---
+
+## 3. Demo
+
+至少展示：
+
+* [ ] 用户注册 / 登录
+* [ ] 文件上传
+* [ ] 文档解析
+* [ ] RAG 问答
+* [ ] Citation
+* [ ] SSE Streaming
+* [ ] Agent Tool Call
+* [ ] Docker Compose
+* [ ] Monitoring
+
+可选：
+
+* [ ] 3～5 分钟 Demo Video
+
+---
+
+# 项目名称建议
+
+## 基于 Spring Boot 的多用户 AI 知识库与智能工具调用平台
+
+英文：
+
+**Multi-user AI Knowledge Base and Tool-Calling Platform Based on Spring Boot**
+
+---
+
+# 最终简历能力主线
+
+项目介绍应围绕以下能力展开，而不是简单罗列技术框架。
+
+### 1. AI Model Integration
+
+通过 `AIService` 抽象模型调用层，支持 Mock 与 OpenAI-compatible Provider，并统一处理模型配置、Timeout、Retry、指数退避和异常分类。
+
+### 2. Context Engineering
+
+设计多轮 Conversation Context 和 RAG Context 两套上下文管理机制，通过 Token Budget 控制真正发送给模型的信息，而不是无限累积历史内容。
+
+### 3. File & RAG Pipeline
+
+实现：
+
+```text
+Upload
+→ Parse
+→ Chunk
+→ Embedding
+→ Qdrant
+→ Retrieval
+→ Context Assembly
+→ LLM
+→ Citation
+```
+
+的完整文档知识库 Pipeline。
+
+### 4. Permission-aware Retrieval
+
+Qdrant 检索阶段按照 userId、fileIds 和 indexVersion 过滤，并通过 MySQL Source of Truth 对 Retrieval Result 进行二次资源归属校验。
+
+### 5. Grounded Generation
+
+通过 Context Assembly、Grounded Prompt、Empty Context Refusal 和 Citation Whitelist，降低模型脱离检索证据生成答案的风险。
+
+### 6. Function Calling & Agent
+
+通过 Tool Schema 建立模型与后端业务能力之间的受控接口，模型只负责 Tool Selection 和 Arguments Generation，后端负责 Validation、Permission、Execution 和 Safety Boundary。
+
+### 7. Deployment
+
+使用 Docker Compose 统一管理 Spring Boot、MySQL、Qdrant 和 MinIO，实现项目环境的一键启动和数据持久化。
+
+### 8. Observability
+
+使用 Actuator、Micrometer 和 Prometheus 对 HTTP、AI、RAG 和 Agent 的延迟、错误率、Token、P95/P99 和 Tool Execution 进行基础监控。
+
+---
+
+# 后续实际学习顺序
+
+```text
+当前 Phase 7 完成
+↓
+Phase 8
+Docker / Dockerfile / Docker Compose
+↓
+Phase 9
+Function Calling / Agent
+↓
+Phase 10
+RabbitMQ（时间允许）
+↓
+Phase 11
+Observability / Prometheus / Trace / CI
+↓
+项目收尾
+↓
+源码复盘
+↓
+项目面试题
+↓
+简历
+↓
+投递实习
+```
+
+---
+
+
+```
+
+

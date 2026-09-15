@@ -48,8 +48,32 @@ public class AIUsageLog {
     @Column(name = "prompt_version")
     private String promptVersion;
 
+    /** 关联的会话 ID（流式对话场景） */
+    @Column(name = "conversation_id")
+    private Long conversationId;
+
+    /** 关联的文件 ID（图片分析 / 文件 Embedding 场景） */
+    @Column(name = "file_id")
+    private Long fileId;
+
+    /** 调用类型：GENERATION / STREAMING / MULTIMODAL / EMBEDDING（旧数据为 null） */
+    @Column(name = "call_type", length = 20)
+    private String callType;
+
+    /** 首 Token 延迟（毫秒），流式场景 */
+    @Column(name = "first_token_latency_ms")
+    private long firstTokenLatencyMs;
+
+    /** 重试次数 */
+    @Column(name = "retry_count")
+    private int retryCount;
+
+    /** 是否在收到首个 Token 前就失败 */
+    @Column(name = "failed_before_first_token")
+    private boolean failedBeforeFirstToken;
+
     @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt = LocalDateTime.now();
 
     // ==================== 构造 ====================
 
@@ -88,6 +112,40 @@ public class AIUsageLog {
         this.createdAt = LocalDateTime.now();
     }
 
+    /** 流式成功调用 */
+    public AIUsageLog(Long userId, Long conversationId, String provider, String modelName,
+                      long elapsedMs, long firstTokenLatencyMs, int retryCount,
+                      String promptVersion) {
+        this.userId = userId;
+        this.conversationId = conversationId;
+        this.success = true;
+        this.provider = provider;
+        this.modelName = modelName;
+        this.elapsedMs = elapsedMs;
+        this.firstTokenLatencyMs = firstTokenLatencyMs;
+        this.retryCount = retryCount;
+        this.promptVersion = promptVersion;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    /** 流式失败调用 */
+    public AIUsageLog(Long userId, Long conversationId, String provider, String modelName,
+                      long elapsedMs, long firstTokenLatencyMs, int retryCount,
+                      boolean failedBeforeFirstToken, String errorType, String promptVersion) {
+        this.userId = userId;
+        this.conversationId = conversationId;
+        this.success = false;
+        this.provider = provider;
+        this.modelName = modelName;
+        this.elapsedMs = elapsedMs;
+        this.firstTokenLatencyMs = firstTokenLatencyMs;
+        this.retryCount = retryCount;
+        this.failedBeforeFirstToken = failedBeforeFirstToken;
+        this.errorType = errorType;
+        this.promptVersion = promptVersion;
+        this.createdAt = LocalDateTime.now();
+    }
+
     // ==================== Getter / Setter ====================
 
     public Long getId() { return id; }
@@ -114,6 +172,18 @@ public class AIUsageLog {
     public void setErrorType(String errorType) { this.errorType = errorType; }
     public String getPromptVersion() { return promptVersion; }
     public void setPromptVersion(String promptVersion) { this.promptVersion = promptVersion; }
+    public Long getConversationId() { return conversationId; }
+    public void setConversationId(Long conversationId) { this.conversationId = conversationId; }
+    public Long getFileId() { return fileId; }
+    public void setFileId(Long fileId) { this.fileId = fileId; }
+    public String getCallType() { return callType; }
+    public void setCallType(String callType) { this.callType = callType; }
+    public long getFirstTokenLatencyMs() { return firstTokenLatencyMs; }
+    public void setFirstTokenLatencyMs(long firstTokenLatencyMs) { this.firstTokenLatencyMs = firstTokenLatencyMs; }
+    public int getRetryCount() { return retryCount; }
+    public void setRetryCount(int retryCount) { this.retryCount = retryCount; }
+    public boolean isFailedBeforeFirstToken() { return failedBeforeFirstToken; }
+    public void setFailedBeforeFirstToken(boolean failedBeforeFirstToken) { this.failedBeforeFirstToken = failedBeforeFirstToken; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

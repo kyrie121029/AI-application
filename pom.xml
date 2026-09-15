@@ -85,6 +85,27 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- MinIO Java SDK：对象存储（Phase 6.2，通过 storage.type=minio 启用） -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>8.5.12</version>
+        </dependency>
+
+        <!-- PDF 解析（Phase 6.3 文档解析） -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>2.0.31</version>
+        </dependency>
+
+        <!-- DOCX 解析（Phase 6.3 文档解析） -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
+
         <!-- Flyway：数据库版本迁移，管理建表/改表脚本 -->
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -94,6 +115,12 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-mysql</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- Actuator：健康检查（Docker healthcheck / compose 依赖编排） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
         <!-- 测试框架：JUnit 5 + Mockito + Spring Test -->

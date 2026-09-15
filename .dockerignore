@@ -1,0 +1,22 @@
+# Build / runtime 产物
+target/
+data/
+*.log
+
+# VCS
+.git
+.gitignore
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+
+# 前端（后端镜像不需要）
+frontend/node_modules/
+frontend/dist/
+
+# 临时
+.shots/
+*.tmp
